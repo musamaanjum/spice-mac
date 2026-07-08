@@ -207,6 +207,38 @@ final class SpiceDisplayView: MTKView {
         return super.resignFirstResponder()
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard router.input != nil, shouldSendKeyEquivalentToGuest(event) else {
+            return super.performKeyEquivalent(with: event)
+        }
+        router.keyEquivalent(event)
+        return true
+    }
+
+    private func shouldSendKeyEquivalentToGuest(_ event: NSEvent) -> Bool {
+        guard window?.firstResponder === self else { return false }
+
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers?.lowercased()
+
+        // Keep explicit client escape hatches local while guest focus owns ordinary
+        // app shortcuts such as Cmd-W/C/V/O.
+        if key == "f", flags.contains(.command), flags.contains(.control) {
+            return false
+        }
+        if key == "r", flags.contains(.control), flags.contains(.option), !flags.contains(.command) {
+            return false
+        }
+        if key == "q", flags.contains(.command) {
+            return false
+        }
+        if key == "h", flags.contains(.command) {
+            return false
+        }
+
+        return flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
+    }
+
     // MARK: - Host cursor visibility (optional, gated on Preferences.hideHostCursor)
 
     /// Hide the macOS cursor only when the user opted in, the window is key, and the
