@@ -53,6 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         sender.state = Preferences.shareClipboard ? .on : .off
     }
 
+    @objc func toggleAutoResizeGuestDisplay(_ sender: NSMenuItem) {
+        Preferences.autoResizeGuestDisplay.toggle()
+        sender.state = Preferences.autoResizeGuestDisplay ? .on : .off
+    }
+
     @objc func toggleTrashConnectionFile(_ sender: NSMenuItem) {
         Preferences.trashConnectionFileAfterUse.toggle()
         sender.state = Preferences.trashConnectionFileAfterUse ? .on : .off
@@ -64,6 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menuItem.state = Preferences.hideHostCursor ? .on : .off
         case #selector(toggleShareClipboard(_:)):
             menuItem.state = Preferences.shareClipboard ? .on : .off
+        case #selector(toggleAutoResizeGuestDisplay(_:)):
+            menuItem.state = Preferences.autoResizeGuestDisplay ? .on : .off
         case #selector(toggleTrashConnectionFile(_:)):
             menuItem.state = Preferences.trashConnectionFileAfterUse ? .on : .off
         default:

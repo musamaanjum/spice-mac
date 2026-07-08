@@ -15,6 +15,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private let containerView = NSView()
     private let statusLabel = NSTextField(labelWithString: "Connecting…")
     private var cancellables = Set<AnyCancellable>()
+    private var autoResizePrefObserver: NSObjectProtocol?
 
     /// Called when the window closes so the app can drop its reference.
     var onClose: (() -> Void)?
@@ -33,9 +34,16 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         window.center()
         setupViews()
         wireClient()
+        observePreferences()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    deinit {
+        if let autoResizePrefObserver {
+            NotificationCenter.default.removeObserver(autoResizePrefObserver)
+        }
+    }
 
     private var baseTitle: String {
         client.title ?? sourceURL.deletingPathExtension().lastPathComponent
@@ -95,6 +103,14 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             .store(in: &cancellables)
     }
 
+    private func observePreferences() {
+        autoResizePrefObserver = NotificationCenter.default.addObserver(
+            forName: .autoResizeGuestDisplayChanged, object: nil, queue: .main) { [weak self] _ in
+            guard Preferences.autoResizeGuestDisplay else { return }
+            self?.requestResolutionForCurrentSize()
+        }
+    }
+
     private func attachDisplay(_ display: CSDisplay) {
         displayView.attachDisplay(display)
         resizeToDisplay(display.displaySize)
@@ -151,7 +167,9 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     private func requestResolutionForCurrentSize() {
-        guard client.supportsDynamicResolution, let display = displayView.attachedDisplay else { return }
+        guard Preferences.autoResizeGuestDisplay,
+              client.supportsDynamicResolution,
+              let display = displayView.attachedDisplay else { return }
         // requestResolution expects guest pixels; convert points→backing pixels so
         // Retina displays request full resolution rather than half.
         display.requestResolution(displayView.convertToBacking(displayView.bounds))

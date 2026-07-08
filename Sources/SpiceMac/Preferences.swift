@@ -26,6 +26,19 @@ enum Preferences {
         set { UserDefaults.standard.set(newValue, forKey: shareClipboardKey) }
     }
 
+    private static let autoResizeGuestDisplayKey = "AutoResizeGuestDisplay"
+
+    /// Whether window/fullscreen size changes request a matching guest resolution.
+    /// Default ON to preserve current virt-viewer-like behavior. Disable it to keep
+    /// the guest resolution fixed and only scale locally.
+    static var autoResizeGuestDisplay: Bool {
+        get { (UserDefaults.standard.object(forKey: autoResizeGuestDisplayKey) as? Bool) ?? true }
+        set {
+            UserDefaults.standard.set(newValue, forKey: autoResizeGuestDisplayKey)
+            NotificationCenter.default.post(name: .autoResizeGuestDisplayChanged, object: nil)
+        }
+    }
+
     private static let trashAfterUseKey = "TrashConnectionFileAfterUse"
 
     /// Whether to move a `.vv` connection file to the Trash after using it to
@@ -40,4 +53,5 @@ enum Preferences {
 
 extension Notification.Name {
     static let hideHostCursorChanged = Notification.Name("SpiceMac.hideHostCursorChanged")
+    static let autoResizeGuestDisplayChanged = Notification.Name("SpiceMac.autoResizeGuestDisplayChanged")
 }

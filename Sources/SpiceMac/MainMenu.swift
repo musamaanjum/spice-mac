@@ -67,6 +67,7 @@ enum MainMenu {
         shareClipboard.toolTip = "Share the clipboard with the VM (both directions). "
             + "Takes effect on the next connection. Turn off for untrusted VMs."
         connMenu.addItem(shareClipboard)
+        connMenu.addItem(autoResizeGuestDisplayItem(title: "Auto Resize Guest Display"))
         connMenu.addItem(.separator())
         // USB submenu, populated dynamically by the window controller.
         let usbItem = NSMenuItem(title: "USB Devices", action: nil, keyEquivalent: "")
@@ -99,6 +100,15 @@ enum MainMenu {
         NSApp.windowsMenu = windowMenu
 
         return mainMenu
+    }
+
+    private static func autoResizeGuestDisplayItem(title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title,
+                              action: #selector(AppDelegate.toggleAutoResizeGuestDisplay(_:)),
+                              keyEquivalent: "")
+        item.state = Preferences.autoResizeGuestDisplay ? .on : .off
+        item.toolTip = "Request a matching guest resolution when the window or fullscreen size changes."
+        return item
     }
 
     /// The USB submenu, populated dynamically by the front `SpiceWindowController`.
