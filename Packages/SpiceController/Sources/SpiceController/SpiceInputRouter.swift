@@ -48,6 +48,7 @@ public final class SpiceInputRouter {
 
     private var buttonMask: CSInputButton = []
     private var heldModifiers: Set<UInt16> = []
+    private var synthesizedKeyEquivalentKeyUps: Set<UInt16> = []
 
     public init(input: CSInput? = nil) {
         self.input = input
@@ -56,16 +57,33 @@ public final class SpiceInputRouter {
     // MARK: - Keyboard
 
     public func keyDown(_ event: NSEvent) {
+        if synthesizedKeyEquivalentKeyUps.contains(event.keyCode) {
+            return
+        }
         // Recover any modifier that was released while we weren't getting events
         // (e.g. a ⌘-combo the system intercepted) before sending the key.
         reconcileModifiers(event.modifierFlags)
-        // Auto-repeats are forwarded as additional presses, which the guest expects.
+        // The guest OS already repeats held keys after a single make code; forwarding
+        // macOS repeat keyDowns can multiply characters on slower remote sessions.
+        if event.isARepeat { return }
         sendKey(event.keyCode, pressed: true)
     }
 
     public func keyUp(_ event: NSEvent) {
+        if synthesizedKeyEquivalentKeyUps.remove(event.keyCode) != nil {
+            return
+        }
         reconcileModifiers(event.modifierFlags)
         sendKey(event.keyCode, pressed: false)
+    }
+
+    /// Send a complete shortcut chord when AppKit routes the event through
+    /// performKeyEquivalent. A matching keyUp is not guaranteed on that path.
+    public func keyEquivalent(_ event: NSEvent) {
+        reconcileModifiers(event.modifierFlags)
+        sendKey(event.keyCode, pressed: true)
+        sendKey(event.keyCode, pressed: false)
+        synthesizedKeyEquivalentKeyUps.insert(event.keyCode)
     }
 
     /// macOS reports a modifier transition via `flagsChanged` but not its
@@ -148,6 +166,7 @@ public final class SpiceInputRouter {
             input.releaseKeys()
         }
         heldModifiers.removeAll()
+        synthesizedKeyEquivalentKeyUps.removeAll()
         buttonMask = []
     }
 

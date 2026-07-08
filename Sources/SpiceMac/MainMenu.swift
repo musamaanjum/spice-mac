@@ -29,9 +29,9 @@ enum MainMenu {
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu
         fileMenu.addItem(withTitle: "Open…",
-                         action: #selector(AppDelegate.openDocument(_:)), keyEquivalent: "o")
+                         action: #selector(AppDelegate.openDocument(_:)), keyEquivalent: "")
         fileMenu.addItem(withTitle: "Close",
-                         action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+                         action: #selector(NSWindow.performClose(_:)), keyEquivalent: "")
         fileMenu.addItem(.separator())
         let trashAfterUse = NSMenuItem(title: "Move .vv to Trash After Connecting",
                                        action: #selector(AppDelegate.toggleTrashConnectionFile(_:)), keyEquivalent: "")
@@ -45,10 +45,10 @@ enum MainMenu {
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "Edit")
         editItem.submenu = editMenu
-        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "")
 
         // Connection menu (routed to SpiceWindowController via responder chain)
         let connItem = NSMenuItem()
@@ -98,7 +98,7 @@ enum MainMenu {
         let windowMenu = NSMenu(title: "Window")
         windowItem.submenu = windowMenu
         windowMenu.addItem(withTitle: "Minimize",
-                           action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+                           action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "")
         NSApp.windowsMenu = windowMenu
 
         return mainMenu
