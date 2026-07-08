@@ -39,6 +39,18 @@ enum Preferences {
         }
     }
 
+    private static let hideHostChromeInFullScreenKey = "HideHostChromeInFullScreen"
+
+    /// Whether fullscreen sessions suppress the host Dock and menu bar. Default ON
+    /// so the VM owns screen edges like a dedicated remote viewer.
+    static var hideHostChromeInFullScreen: Bool {
+        get { (UserDefaults.standard.object(forKey: hideHostChromeInFullScreenKey) as? Bool) ?? true }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hideHostChromeInFullScreenKey)
+            NotificationCenter.default.post(name: .hideHostChromeInFullScreenChanged, object: nil)
+        }
+    }
+
     private static let trashAfterUseKey = "TrashConnectionFileAfterUse"
 
     /// Whether to move a `.vv` connection file to the Trash after using it to
@@ -54,4 +66,5 @@ enum Preferences {
 extension Notification.Name {
     static let hideHostCursorChanged = Notification.Name("SpiceMac.hideHostCursorChanged")
     static let autoResizeGuestDisplayChanged = Notification.Name("SpiceMac.autoResizeGuestDisplayChanged")
+    static let hideHostChromeInFullScreenChanged = Notification.Name("SpiceMac.hideHostChromeInFullScreenChanged")
 }

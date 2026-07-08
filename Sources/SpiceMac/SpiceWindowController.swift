@@ -15,7 +15,8 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private let containerView = NSView()
     private let statusLabel = NSTextField(labelWithString: "Connecting…")
     private var cancellables = Set<AnyCancellable>()
-    private var autoResizePrefObserver: NSObjectProtocol?
+    private var preferenceObservers: [NSObjectProtocol] = []
+    private var savedPresentationOptions: NSApplication.PresentationOptions?
 
     /// Called when the window closes so the app can drop its reference.
     var onClose: (() -> Void)?
@@ -40,8 +41,9 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     deinit {
-        if let autoResizePrefObserver {
-            NotificationCenter.default.removeObserver(autoResizePrefObserver)
+        restoreHostPresentationOptions()
+        for observer in preferenceObservers {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
 
@@ -104,11 +106,18 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     private func observePreferences() {
-        autoResizePrefObserver = NotificationCenter.default.addObserver(
+        let autoResize = NotificationCenter.default.addObserver(
             forName: .autoResizeGuestDisplayChanged, object: nil, queue: .main) { [weak self] _ in
             guard Preferences.autoResizeGuestDisplay else { return }
             self?.requestResolutionForCurrentSize()
         }
+        preferenceObservers.append(autoResize)
+
+        let hideChrome = NotificationCenter.default.addObserver(
+            forName: .hideHostChromeInFullScreenChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.updateHostPresentationOptions()
+        }
+        preferenceObservers.append(hideChrome)
     }
 
     private func attachDisplay(_ display: CSDisplay) {
@@ -183,11 +192,41 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
+        updateHostPresentationOptions()
         requestResolutionForCurrentSize()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
+        restoreHostPresentationOptions()
         requestResolutionForCurrentSize()
+    }
+
+    private func updateHostPresentationOptions() {
+        guard window?.styleMask.contains(.fullScreen) == true else {
+            restoreHostPresentationOptions()
+            return
+        }
+        guard Preferences.hideHostChromeInFullScreen else {
+            restoreHostPresentationOptions()
+            return
+        }
+
+        if savedPresentationOptions == nil {
+            savedPresentationOptions = NSApp.presentationOptions
+        }
+
+        var options = NSApp.presentationOptions
+        options.remove(.autoHideDock)
+        options.remove(.autoHideMenuBar)
+        options.insert(.hideDock)
+        options.insert(.hideMenuBar)
+        NSApp.presentationOptions = options
+    }
+
+    private func restoreHostPresentationOptions() {
+        guard let savedPresentationOptions else { return }
+        NSApp.presentationOptions = savedPresentationOptions
+        self.savedPresentationOptions = nil
     }
 
     // MARK: - Window lifecycle
