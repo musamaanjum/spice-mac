@@ -91,6 +91,12 @@ enum MainMenu {
                                     action: #selector(AppDelegate.toggleHideMacCursor(_:)), keyEquivalent: "")
         hideCursor.state = Preferences.hideHostCursor ? .on : .off
         viewMenu.addItem(hideCursor)
+        let hideChrome = NSMenuItem(title: "Hide Dock and Menu Bar in Full Screen",
+                                    action: #selector(AppDelegate.toggleHideHostChromeInFullScreen(_:)),
+                                    keyEquivalent: "")
+        hideChrome.state = Preferences.hideHostChromeInFullScreen ? .on : .off
+        hideChrome.toolTip = "Suppress the host Dock and menu bar while a VM window is fullscreen."
+        viewMenu.addItem(hideChrome)
 
         // Window menu
         let windowItem = NSMenuItem()

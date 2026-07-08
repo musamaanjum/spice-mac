@@ -53,6 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         sender.state = Preferences.shareClipboard ? .on : .off
     }
 
+    @objc func toggleHideHostChromeInFullScreen(_ sender: NSMenuItem) {
+        Preferences.hideHostChromeInFullScreen.toggle()
+        sender.state = Preferences.hideHostChromeInFullScreen ? .on : .off
+    }
+
     @objc func toggleTrashConnectionFile(_ sender: NSMenuItem) {
         Preferences.trashConnectionFileAfterUse.toggle()
         sender.state = Preferences.trashConnectionFileAfterUse ? .on : .off
@@ -67,6 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menuItem.state = Preferences.hideHostCursor ? .on : .off
         case #selector(toggleShareClipboard(_:)):
             menuItem.state = Preferences.shareClipboard ? .on : .off
+        case #selector(toggleHideHostChromeInFullScreen(_:)):
+            menuItem.state = Preferences.hideHostChromeInFullScreen ? .on : .off
         case #selector(toggleTrashConnectionFile(_:)):
             menuItem.state = Preferences.trashConnectionFileAfterUse ? .on : .off
         default:

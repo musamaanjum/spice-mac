@@ -16,6 +16,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private let containerView = NSView()
     private let statusLabel = NSTextField(labelWithString: "Connecting…")
     private var cancellables = Set<AnyCancellable>()
+    private var savedPresentationOptions: NSApplication.PresentationOptions?
 
     /// Called when the window closes so the app can drop its reference.
     var onClose: (() -> Void)?
@@ -63,6 +64,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     deinit {
+        restoreHostPresentationOptions()
         pendingResolutionRequest?.cancel()
         for observer in notificationObservers { NotificationCenter.default.removeObserver(observer) }
     }
@@ -148,6 +150,11 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             object: nil, queue: .main) { [weak self] _ in
             self?.screenChanged(after: 0.6)
         })
+        let hideChrome = NotificationCenter.default.addObserver(
+            forName: .hideHostChromeInFullScreenChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.updateHostPresentationOptions()
+        }
+        notificationObservers.append(hideChrome)
     }
 
     private func attachDisplay(_ display: CSDisplay) {
@@ -341,11 +348,41 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
+        updateHostPresentationOptions()
         scheduleResolutionRequest()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
+        restoreHostPresentationOptions()
         scheduleResolutionRequest()
+    }
+
+    private func updateHostPresentationOptions() {
+        guard window?.styleMask.contains(.fullScreen) == true else {
+            restoreHostPresentationOptions()
+            return
+        }
+        guard Preferences.hideHostChromeInFullScreen else {
+            restoreHostPresentationOptions()
+            return
+        }
+
+        if savedPresentationOptions == nil {
+            savedPresentationOptions = NSApp.presentationOptions
+        }
+
+        var options = NSApp.presentationOptions
+        options.remove(.autoHideDock)
+        options.remove(.autoHideMenuBar)
+        options.insert(.hideDock)
+        options.insert(.hideMenuBar)
+        NSApp.presentationOptions = options
+    }
+
+    private func restoreHostPresentationOptions() {
+        guard let savedPresentationOptions else { return }
+        NSApp.presentationOptions = savedPresentationOptions
+        self.savedPresentationOptions = nil
     }
 
     // MARK: - Window lifecycle
