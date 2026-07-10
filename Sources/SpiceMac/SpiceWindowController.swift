@@ -101,17 +101,22 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
 
         client.$agentConnected
             .receive(on: RunLoop.main)
-            .sink { [weak self] connected in if connected { self?.requestResolutionForCurrentSize() } }
+            .sink { [weak self] connected in if connected { self?.requestPreferredGuestResolution() } }
             .store(in: &cancellables)
     }
 
     private func observePreferences() {
         let autoResize = NotificationCenter.default.addObserver(
             forName: .autoResizeGuestDisplayChanged, object: nil, queue: .main) { [weak self] _ in
-            guard Preferences.autoResizeGuestDisplay else { return }
-            self?.requestResolutionForCurrentSize()
+            self?.requestPreferredGuestResolution()
         }
         preferenceObservers.append(autoResize)
+
+        let fixed1080p = NotificationCenter.default.addObserver(
+            forName: .fixed1080pGuestDisplayChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.requestPreferredGuestResolution()
+        }
+        preferenceObservers.append(fixed1080p)
 
         let hideChrome = NotificationCenter.default.addObserver(
             forName: .hideHostChromeInFullScreenChanged, object: nil, queue: .main) { [weak self] _ in
@@ -125,6 +130,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         resizeToDisplay(display.displaySize)
         statusLabel.isHidden = true
         window?.makeFirstResponder(displayView)
+        requestPreferredGuestResolution()
         if client.prefersFullscreen, window?.styleMask.contains(.fullScreen) == false {
             window?.toggleFullScreen(nil)
         }
@@ -184,21 +190,35 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         display.requestResolution(displayView.convertToBacking(displayView.bounds))
     }
 
+    private func requestGuestResolution(_ size: CGSize) {
+        guard client.supportsDynamicResolution,
+              let display = displayView.attachedDisplay else { return }
+        display.requestResolution(CGRect(origin: .zero, size: size))
+    }
+
+    private func requestPreferredGuestResolution() {
+        if Preferences.fixed1080pGuestDisplay {
+            requestGuestResolution(CGSize(width: 1920, height: 1080))
+        } else {
+            requestResolutionForCurrentSize()
+        }
+    }
+
     // Request a matching guest resolution only at DISCRETE moments — never on the
     // continuous windowDidResize, which (during a live drag, or when a programmatic
     // resize fires it) creates the resize↔request oscillation.
     func windowDidEndLiveResize(_ notification: Notification) {
-        requestResolutionForCurrentSize()
+        requestPreferredGuestResolution()
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
         updateHostPresentationOptions()
-        requestResolutionForCurrentSize()
+        requestPreferredGuestResolution()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         restoreHostPresentationOptions()
-        requestResolutionForCurrentSize()
+        requestPreferredGuestResolution()
     }
 
     private func updateHostPresentationOptions() {
@@ -267,10 +287,22 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         displayView.router.releaseAll()
     }
 
+    @objc func toggleFixed1080pGuestDisplay(_ sender: NSMenuItem) {
+        let enabled = !Preferences.fixed1080pGuestDisplay
+        if enabled {
+            Preferences.autoResizeGuestDisplay = false
+        }
+        Preferences.fixed1080pGuestDisplay = enabled
+        sender.state = enabled ? .on : .off
+    }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(sendCtrlAltDel(_:)), #selector(releaseCursor(_:)):
             return displayView.router.input != nil
+        case #selector(toggleFixed1080pGuestDisplay(_:)):
+            menuItem.state = Preferences.fixed1080pGuestDisplay ? .on : .off
+            return client.supportsDynamicResolution && displayView.attachedDisplay != nil
         default:
             return true
         }

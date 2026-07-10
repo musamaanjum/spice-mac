@@ -75,7 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     @objc func toggleAutoResizeGuestDisplay(_ sender: NSMenuItem) {
-        Preferences.autoResizeGuestDisplay.toggle()
+        let enabled = !Preferences.autoResizeGuestDisplay
+        if enabled {
+            Preferences.fixed1080pGuestDisplay = false
+        }
+        Preferences.autoResizeGuestDisplay = enabled
         sender.state = Preferences.autoResizeGuestDisplay ? .on : .off
     }
 

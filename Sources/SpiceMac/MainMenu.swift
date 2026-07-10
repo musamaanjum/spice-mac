@@ -68,6 +68,12 @@ enum MainMenu {
             + "Takes effect on the next connection. Turn off for untrusted VMs."
         connMenu.addItem(shareClipboard)
         connMenu.addItem(autoResizeGuestDisplayItem(title: "Auto Resize Guest Display"))
+        let resize1080p = NSMenuItem(title: "Resize Guest to 1080p",
+                                     action: #selector(SpiceWindowController.toggleFixed1080pGuestDisplay(_:)),
+                                     keyEquivalent: "")
+        resize1080p.state = Preferences.fixed1080pGuestDisplay ? .on : .off
+        resize1080p.toolTip = "Keep requesting a 1920x1080 guest display resolution."
+        connMenu.addItem(resize1080p)
         connMenu.addItem(.separator())
         // USB submenu, populated dynamically by the window controller.
         let usbItem = NSMenuItem(title: "USB Devices", action: nil, keyEquivalent: "")

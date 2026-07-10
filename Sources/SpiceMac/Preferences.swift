@@ -39,6 +39,18 @@ enum Preferences {
         }
     }
 
+    private static let fixed1080pGuestDisplayKey = "Fixed1080pGuestDisplay"
+
+    /// Whether to keep requesting a 1920x1080 guest resolution. Default OFF. When
+    /// enabled, this takes precedence over auto-resizing to the host window.
+    static var fixed1080pGuestDisplay: Bool {
+        get { UserDefaults.standard.bool(forKey: fixed1080pGuestDisplayKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: fixed1080pGuestDisplayKey)
+            NotificationCenter.default.post(name: .fixed1080pGuestDisplayChanged, object: nil)
+        }
+    }
+
     private static let hideHostChromeInFullScreenKey = "HideHostChromeInFullScreen"
 
     /// Whether fullscreen sessions suppress the host Dock and menu bar. Default ON
@@ -66,5 +78,6 @@ enum Preferences {
 extension Notification.Name {
     static let hideHostCursorChanged = Notification.Name("SpiceMac.hideHostCursorChanged")
     static let autoResizeGuestDisplayChanged = Notification.Name("SpiceMac.autoResizeGuestDisplayChanged")
+    static let fixed1080pGuestDisplayChanged = Notification.Name("SpiceMac.fixed1080pGuestDisplayChanged")
     static let hideHostChromeInFullScreenChanged = Notification.Name("SpiceMac.hideHostChromeInFullScreenChanged")
 }
