@@ -76,6 +76,14 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || true)"
+if [ -n "$GIT_COMMIT" ]; then
+    if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        GIT_COMMIT="$GIT_COMMIT-dirty"
+    fi
+    /usr/libexec/PlistBuddy -c "Add :SpiceMacGitCommit string $GIT_COMMIT" "$APP/Contents/Info.plist"
+    log "  git commit: $GIT_COMMIT"
+fi
 cp "$BIN_PATH/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 
 # App icon (CFBundleIconFile=AppIcon). Regenerate with scripts/make-icon.sh.
