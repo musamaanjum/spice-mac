@@ -15,7 +15,7 @@ enum MainMenu {
         let appMenu = NSMenu()
         appItem.submenu = appMenu
         appMenu.addItem(withTitle: "About \(appName)",
-                        action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+                        action: #selector(AppDelegate.showAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide \(appName)",
                         action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
