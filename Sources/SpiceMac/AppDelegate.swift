@@ -41,6 +41,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         presentOpenPanel()
     }
 
+    @objc func showAboutPanel(_ sender: Any?) {
+        let bundle = Bundle.main
+        let appName = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? ProcessInfo.processInfo.processName
+        let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: appName,
+            .applicationVersion: version,
+            .version: build
+        ])
+    }
+
     // MARK: - Preferences
 
     @objc func toggleHideMacCursor(_ sender: NSMenuItem) {
