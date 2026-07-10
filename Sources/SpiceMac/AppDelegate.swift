@@ -48,10 +48,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             ?? ProcessInfo.processInfo.processName
         let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+        let gitCommit = bundle.object(forInfoDictionaryKey: "SpiceMacGitCommit") as? String
+        let displayVersion = if let gitCommit, !gitCommit.isEmpty {
+            "\(version) (\(build), \(gitCommit))"
+        } else {
+            "\(version) (\(build))"
+        }
 
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: appName,
-            .applicationVersion: version,
+            .applicationVersion: displayVersion,
             .version: build
         ])
     }
