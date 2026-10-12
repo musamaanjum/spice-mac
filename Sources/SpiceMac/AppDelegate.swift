@@ -75,12 +75,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     @objc func toggleAutoResizeGuestDisplay(_ sender: NSMenuItem) {
-        let enabled = !Preferences.autoResizeGuestDisplay
-        if enabled {
-            Preferences.fixed1080pGuestDisplay = false
-        }
-        Preferences.autoResizeGuestDisplay = enabled
-        sender.state = Preferences.autoResizeGuestDisplay ? .on : .off
+        Preferences.guestResolutionMode = Preferences.guestResolutionMode == .automatic ? .manual : .automatic
+        sender.state = Preferences.guestResolutionMode == .automatic ? .on : .off
     }
 
     @objc func toggleHideHostChromeInFullScreen(_ sender: NSMenuItem) {
@@ -100,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(toggleShareClipboard(_:)):
             menuItem.state = Preferences.shareClipboard ? .on : .off
         case #selector(toggleAutoResizeGuestDisplay(_:)):
-            menuItem.state = Preferences.autoResizeGuestDisplay ? .on : .off
+            menuItem.state = Preferences.guestResolutionMode == .automatic ? .on : .off
         case #selector(toggleHideHostChromeInFullScreen(_:)):
             menuItem.state = Preferences.hideHostChromeInFullScreen ? .on : .off
         case #selector(toggleTrashConnectionFile(_:)):

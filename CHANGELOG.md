@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **1512×982 fixed guest resolution** in the Connection menu.
+- **Fit Window (1.5×) guest resolution.** Uses the actual display area's native
+  pixels divided by 1.5, rather than assuming a particular panel or notch size.
+
+### Fixed
+
+- **Resolution selection.** Changes the selected mode atomically, avoiding
+  requests for intermediate presets. Auto-size uses logical points for lower
+  bandwidth; fit mode follows window geometry and backing-scale changes.
+- **Xcode 26 renderer resource packaging.** The compiled Metal library is placed
+  in the bundle's actual resource directory, preventing a display-creation crash.
+- **Xcode 26 build compatibility.** SwiftPM now copies the Metal source for the
+  existing app-bundling step to compile, avoiding an early duplicate Metal
+  compilation during `swift build`. Data-only SwiftPM resource bundles are now
+  sealed by the outer app signature instead of being incorrectly signed as code.
+
 ## [0.1.7] — 2026-06-15
 
 ### Fixed

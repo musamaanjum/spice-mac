@@ -102,12 +102,23 @@ done
 RENDERER_DIR="$ROOT/ThirdParty/CocoaSpice/Sources/CocoaSpiceRenderer"
 RES_BUNDLE="$APP/Contents/Resources/CocoaSpice_CocoaSpiceRenderer.bundle"
 if [ -f "$RENDERER_DIR/CSShaders.metal" ] && [ -d "$RES_BUNDLE" ]; then
+    # Xcode-generated macOS bundles keep resources in Contents/Resources,
+    # whereas bundles produced by `swift build` use a flat layout. Metal's
+    # newDefaultLibraryWithBundle: searches Bundle.resourceURL, so install the
+    # library there rather than assuming the bundle root.
+    if [ -d "$RES_BUNDLE/Contents/Resources" ]; then
+        METAL_RESOURCES="$RES_BUNDLE/Contents/Resources"
+    else
+        METAL_RESOURCES="$RES_BUNDLE"
+    fi
     log "compiling Metal shader → default.metallib"
     if xcrun -sdk macosx metal -I "$RENDERER_DIR" -c "$RENDERER_DIR/CSShaders.metal" -o "$WORK/CSShaders.air" 2>"$WORK/metal.log" \
-       && xcrun -sdk macosx metallib "$WORK/CSShaders.air" -o "$RES_BUNDLE/default.metallib" 2>>"$WORK/metal.log"; then
-        rm -f "$RES_BUNDLE/CSShaders.metal"        # raw source not needed at runtime
-        # Minimal Info.plist so it is a valid, signable bundle.
-        cat > "$RES_BUNDLE/Info.plist" <<PLIST
+       && xcrun -sdk macosx metallib "$WORK/CSShaders.air" -o "$METAL_RESOURCES/default.metallib" 2>>"$WORK/metal.log"; then
+        rm -f "$RES_BUNDLE/CSShaders.metal" "$METAL_RESOURCES/CSShaders.metal" # raw source not needed at runtime
+        # A flat SwiftPM resource bundle has no Info.plist, so add one to make
+        # it a valid bundle. Preserve Xcode's Contents/Info.plist when present.
+        if [ ! -f "$RES_BUNDLE/Contents/Info.plist" ]; then
+            cat > "$RES_BUNDLE/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -116,6 +127,7 @@ if [ -f "$RENDERER_DIR/CSShaders.metal" ] && [ -d "$RES_BUNDLE" ]; then
   <key>CFBundlePackageType</key><string>BNDL</string>
 </dict></plist>
 PLIST
+        fi
         log "  default.metallib OK"
     elif [ "${ALLOW_NO_METAL:-0}" = "1" ]; then
         log "WARNING: Metal shader compile failed but ALLOW_NO_METAL=1 — display will NOT render."
@@ -179,9 +191,11 @@ find "$APP/Contents/Frameworks" -type d -name "*.framework" -print0 |
     while IFS= read -r -d '' fw; do
         codesign "${SIGN_ARGS[@]}" "$fw" 2>/dev/null || codesign "${SIGN_ARGS[@]}" "$fw"
     done
-for bundle in "$APP/Contents/Resources/"*.bundle; do
-    [ -e "$bundle" ] && codesign "${SIGN_ARGS[@]}" "$bundle"
-done
+# SwiftPM resource bundles are data-only flat bundles (Info.plist and resources
+# live at their root). Current codesign rejects signing that layout directly as
+# "unsealed contents present in the bundle root". They contain no executable
+# code and are sealed by the outer app signature below, so only sign frameworks
+# here.
 
 log "signing app"
 codesign "${APP_SIGN_ARGS[@]}" "$APP"

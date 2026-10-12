@@ -1,5 +1,22 @@
 // SPDX-License-Identifier: MIT
 import Foundation
+import CoreGraphics
+
+enum GuestResolutionMode {
+    case manual, automatic, fullHD, fixed1512, fitWindow15
+
+    func resolution(for size: CGSize, backingScale: CGFloat) -> CGSize? {
+        switch self {
+        case .manual: return nil
+        case .fullHD: return CGSize(width: 1920, height: 1080)
+        case .fixed1512: return CGSize(width: 1512, height: 982)
+        case .automatic, .fitWindow15:
+            guard size.width > 1, size.height > 1 else { return nil }
+            let scale: CGFloat = self == .fitWindow15 ? backingScale / 1.5 : 1
+            return CGSize(width: floor(size.width * scale), height: floor(size.height * scale))
+        }
+    }
+}
 
 /// App preferences, backed by `UserDefaults`.
 enum Preferences {
@@ -28,26 +45,28 @@ enum Preferences {
 
     private static let autoResizeGuestDisplayKey = "AutoResizeGuestDisplay"
 
-    /// Whether window/fullscreen size changes request a matching guest resolution.
-    /// Default ON to preserve current virt-viewer-like behavior. Disable it to keep
-    /// the guest resolution fixed and only scale locally.
-    static var autoResizeGuestDisplay: Bool {
-        get { (UserDefaults.standard.object(forKey: autoResizeGuestDisplayKey) as? Bool) ?? true }
-        set {
-            UserDefaults.standard.set(newValue, forKey: autoResizeGuestDisplayKey)
-            NotificationCenter.default.post(name: .autoResizeGuestDisplayChanged, object: nil)
-        }
-    }
-
     private static let fixed1080pGuestDisplayKey = "Fixed1080pGuestDisplay"
+    private static let fixed1512GuestDisplayKey = "Fixed1512GuestDisplay"
+    private static let fitGuestToScreenKey = "FixedCurrentScreenGuestDisplay"
 
-    /// Whether to keep requesting a 1920x1080 guest resolution. Default OFF. When
-    /// enabled, this takes precedence over auto-resizing to the host window.
-    static var fixed1080pGuestDisplay: Bool {
-        get { UserDefaults.standard.bool(forKey: fixed1080pGuestDisplayKey) }
+    /// Keep existing defaults, but change the whole selection before notifying
+    /// windows. One menu click must not request several intermediate resolutions.
+    static var guestResolutionMode: GuestResolutionMode {
+        get {
+            let defaults = UserDefaults.standard
+            if defaults.bool(forKey: fixed1512GuestDisplayKey) { return .fixed1512 }
+            if defaults.bool(forKey: fitGuestToScreenKey) { return .fitWindow15 }
+            if defaults.bool(forKey: fixed1080pGuestDisplayKey) { return .fullHD }
+            if (defaults.object(forKey: autoResizeGuestDisplayKey) as? Bool) ?? true { return .automatic }
+            return .manual
+        }
         set {
-            UserDefaults.standard.set(newValue, forKey: fixed1080pGuestDisplayKey)
-            NotificationCenter.default.post(name: .fixed1080pGuestDisplayChanged, object: nil)
+            let defaults = UserDefaults.standard
+            defaults.set(newValue == .automatic, forKey: autoResizeGuestDisplayKey)
+            defaults.set(newValue == .fullHD, forKey: fixed1080pGuestDisplayKey)
+            defaults.set(newValue == .fixed1512, forKey: fixed1512GuestDisplayKey)
+            defaults.set(newValue == .fitWindow15, forKey: fitGuestToScreenKey)
+            NotificationCenter.default.post(name: .guestResolutionModeChanged, object: nil)
         }
     }
 
@@ -77,7 +96,6 @@ enum Preferences {
 
 extension Notification.Name {
     static let hideHostCursorChanged = Notification.Name("SpiceMac.hideHostCursorChanged")
-    static let autoResizeGuestDisplayChanged = Notification.Name("SpiceMac.autoResizeGuestDisplayChanged")
-    static let fixed1080pGuestDisplayChanged = Notification.Name("SpiceMac.fixed1080pGuestDisplayChanged")
+    static let guestResolutionModeChanged = Notification.Name("SpiceMac.guestResolutionModeChanged")
     static let hideHostChromeInFullScreenChanged = Notification.Name("SpiceMac.hideHostChromeInFullScreenChanged")
 }

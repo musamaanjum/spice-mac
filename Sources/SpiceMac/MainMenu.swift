@@ -68,12 +68,25 @@ enum MainMenu {
             + "Takes effect on the next connection. Turn off for untrusted VMs."
         connMenu.addItem(shareClipboard)
         connMenu.addItem(autoResizeGuestDisplayItem(title: "Auto Resize Guest Display"))
-        let resize1080p = NSMenuItem(title: "Resize Guest to 1080p",
+        let resize1080p = NSMenuItem(title: "1920 × 1080 (1080p)",
                                      action: #selector(SpiceWindowController.toggleFixed1080pGuestDisplay(_:)),
                                      keyEquivalent: "")
-        resize1080p.state = Preferences.fixed1080pGuestDisplay ? .on : .off
+        resize1080p.state = Preferences.guestResolutionMode == .fullHD ? .on : .off
         resize1080p.toolTip = "Keep requesting a 1920x1080 guest display resolution."
         connMenu.addItem(resize1080p)
+        let resize1512 = NSMenuItem(title: "1512 × 982",
+                                    action: #selector(SpiceWindowController.selectFixed1512GuestDisplay(_:)),
+                                    keyEquivalent: "")
+        resize1512.state = Preferences.guestResolutionMode == .fixed1512 ? .on : .off
+        resize1512.toolTip = "Keep requesting a fixed 1512x982 guest display resolution."
+        connMenu.addItem(resize1512)
+        let resizeToScreen = NSMenuItem(
+            title: "Fit Window (1.5×)",
+            action: #selector(SpiceWindowController.toggleFitGuestToScreen(_:)),
+            keyEquivalent: "")
+        resizeToScreen.state = Preferences.guestResolutionMode == .fitWindow15 ? .on : .off
+        resizeToScreen.toolTip = "Match the display area using native pixels divided by 1.5; no guest UI scaling required."
+        connMenu.addItem(resizeToScreen)
         connMenu.addItem(.separator())
         // USB submenu, populated dynamically by the window controller.
         let usbItem = NSMenuItem(title: "USB Devices", action: nil, keyEquivalent: "")
@@ -118,7 +131,7 @@ enum MainMenu {
         let item = NSMenuItem(title: title,
                               action: #selector(AppDelegate.toggleAutoResizeGuestDisplay(_:)),
                               keyEquivalent: "")
-        item.state = Preferences.autoResizeGuestDisplay ? .on : .off
+        item.state = Preferences.guestResolutionMode == .automatic ? .on : .off
         item.toolTip = "Request a matching guest resolution when the window or fullscreen size changes."
         return item
     }

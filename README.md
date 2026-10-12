@@ -169,6 +169,16 @@ the matching build-time headers; keep the sysroot version in sync with them.
 3. For clipboard sharing and dynamic resolution, the guest must run
    **`spice-vdagent`**.
 
+**Connection ▸ Fit Window (1.5×)** requests the actual view's native pixel size
+divided by 1.5, preserving its aspect ratio in windowed and fullscreen modes.
+The menu shows the calculated resolution. **Auto Resize Guest Display** uses
+one guest pixel per logical Mac point for lower bandwidth; **1920 × 1080** is
+a fixed preset. **1512 × 982** is also available as a fixed preset. These modes
+are mutually exclusive and require guest support.
+If a Virtio/GNOME guest advertises the requested mode as preferred but keeps
+another mode active, check its saved display configuration (`monitors.xml`);
+a saved fixed mode can override automatic selection.
+
 What the app does with the `.vv`: parses the opaque `host` token, `proxy`
 (`http://node:3128`), `tls-port`, one-time `password`, `host-subject`, and CA
 (expanding the escaped `\n`), then connects over TLS through the node's

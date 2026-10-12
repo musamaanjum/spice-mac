@@ -34,7 +34,10 @@ let package = Package(
             name: "CocoaSpiceRenderer",
             dependencies: [],
             resources: [
-                .process("CSShaders.metal")],
+                // The app bundler compiles this into default.metallib. Copy the
+                // source here so newer SwiftPM/Xcode releases do not also invoke
+                // the Metal compiler during `swift build`.
+                .copy("CSShaders.metal")],
             // spice-mac: silence upstream's benign ObjC warnings for a clean build.
             cSettings: [
                 .unsafeFlags(quietWarnings)]),
