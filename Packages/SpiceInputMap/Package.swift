@@ -1,7 +1,7 @@
 // swift-tools-version:5.9
 import PackageDescription
 
-// Pure-Swift keyboard scancode mapping with a dependency-free check runner
+// Pure-Swift keyboard and scroll mapping with a dependency-free check runner
 // (`swift run inputcheck`), kept independent of CocoaSpice so it builds and is
 // verifiable without the native SPICE stack.
 let package = Package(

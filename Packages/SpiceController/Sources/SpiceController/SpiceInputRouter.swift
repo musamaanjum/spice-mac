@@ -205,13 +205,11 @@ public final class SpiceInputRouter {
 
     public func scrollWheel(_ event: NSEvent) {
         guard let input else { return }
-        let dy = event.scrollingDeltaY
+        let dy = SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: event.scrollingDeltaY)
         if event.hasPreciseScrollingDeltas {
             input.sendMouseScroll(.smooth, buttonMask: buttonMask, dy: dy)
         } else if dy < 0 {
-            // Match the smooth path's sign convention (CSInput maps negative dy to
-            // scroll-up, positive to scroll-down) so a wheel and a trackpad send the
-            // same guest direction for the same physical gesture.
+            // The converted delta uses negative = up for both input paths.
             input.sendMouseScroll(.up, buttonMask: buttonMask, dy: 0)
         } else if dy > 0 {
             input.sendMouseScroll(.down, buttonMask: buttonMask, dy: 0)

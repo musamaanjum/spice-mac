@@ -13,6 +13,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Reversed trackpad and mouse-wheel scrolling.** Convert AppKit's scroll Y
+  sign to CocoaSpice's convention while preserving macOS Natural Scrolling.
 - Xcode 26 builds copy the Metal source for the app bundler to compile, install
   the compiled shader in the renderer bundle's actual resource directory, and
   seal data-only resource bundles with the outer app signature.

@@ -159,4 +159,31 @@ t.test("all scancodes are unique (no accidental duplicate make codes)") {
     t.expect(values.count >= 90, "expected a broad mapping, got \(values.count) entries")
 }
 
+t.test("positive AppKit Y maps to CocoaSpice scroll-up for wheels and trackpads") {
+    for delta: CGFloat in [1, 0.25, 12] {
+        let dy = SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: delta)
+        t.expectEqual(dy, -delta)
+        t.expect(dy < 0, "CocoaSpice must send scroll-up")
+    }
+}
+
+t.test("negative AppKit Y maps to CocoaSpice scroll-down for wheels and trackpads") {
+    for delta: CGFloat in [-1, -0.25, -12] {
+        let dy = SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: delta)
+        t.expectEqual(dy, -delta)
+        t.expect(dy > 0, "CocoaSpice must send scroll-down")
+    }
+}
+
+t.test("precise and momentum deltas keep their magnitude without rounding") {
+    let deltas: [CGFloat] = [0.125, 0.25, 0.5, -0.0625, -0.03125]
+    let converted = deltas.map { SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: $0) }
+    t.expectEqual(converted, [-0.125, -0.25, -0.5, 0.0625, 0.03125])
+    t.expectEqual(converted.reduce(0, +), -deltas.reduce(0, +))
+}
+
+t.test("zero vertical delta stays zero (horizontal-only and gesture-end events)") {
+    t.expectEqual(SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: 0), 0)
+}
+
 t.finishAndExit()
