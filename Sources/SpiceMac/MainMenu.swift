@@ -68,6 +68,17 @@ enum MainMenu {
         shareClipboard.toolTip = "Share the clipboard with the VM (both directions). "
             + "Takes effect on the next connection. Turn off for untrusted VMs."
         connMenu.addItem(shareClipboard)
+        let resolutionItem = NSMenuItem(title: "Guest Resolution", action: nil, keyEquivalent: "")
+        let resolutionMenu = NSMenu(title: "Guest Resolution")
+        resolutionItem.submenu = resolutionMenu
+        for preset in GuestResolutionPreset.allCases {
+            let item = NSMenuItem(title: preset.title,
+                                  action: #selector(SpiceWindowController.setGuestResolutionPreset(_:)),
+                                  keyEquivalent: "")
+            item.tag = preset.rawValue
+            resolutionMenu.addItem(item)
+        }
+        connMenu.addItem(resolutionItem)
         connMenu.addItem(.separator())
         // USB submenu, populated dynamically by the window controller.
         let usbItem = NSMenuItem(title: "USB Devices", action: nil, keyEquivalent: "")

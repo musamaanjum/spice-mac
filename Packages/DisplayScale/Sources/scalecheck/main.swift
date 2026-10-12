@@ -36,6 +36,36 @@ t.test("raw 0 is automatic, so a missing UserDefaults key reads as automatic") {
 
 // MARK: - Requested guest resolution
 
+t.test("fixed resolution presets do not depend on viewport, backing scale, or zoom") {
+    for zoom in DisplayZoom.allCases {
+        for backing: CGFloat in [1, 2] {
+            t.expectSize(GuestResolutionPreset.fullHD.target(viewPoints: viewPoints, backingScale: backing, zoom: zoom)!,
+                         CGSize(width: 1920, height: 1080))
+            t.expectSize(GuestResolutionPreset.macBook.target(viewPoints: CGSize(width: 800, height: 600),
+                                                              backingScale: backing, zoom: zoom)!,
+                         CGSize(width: 1512, height: 982))
+        }
+    }
+}
+
+t.test("window preset delegates to upstream zoom geometry") {
+    for zoom in DisplayZoom.allCases {
+        t.expectSize(GuestResolutionPreset.window.target(viewPoints: viewPoints, backingScale: 2, zoom: zoom)!,
+                     DisplayScale.targetGuestSize(viewPoints: viewPoints, backingScale: 2, zoom: zoom))
+    }
+    for preset in GuestResolutionPreset.allCases {
+        t.expectEqual(GuestResolutionPreset(rawValue: preset.rawValue), preset)
+    }
+    t.expectEqual(GuestResolutionPreset(rawValue: 42), nil)
+}
+
+t.test("keep-current preset never requests a guest mode switch") {
+    for zoom in DisplayZoom.allCases {
+        t.expect(GuestResolutionPreset.manual.target(viewPoints: viewPoints, backingScale: 2, zoom: zoom) == nil,
+                 "manual mode must leave guest resolution unchanged")
+    }
+}
+
 t.test("automatic asks for the window's POINT size on any display") {
     // In automatic mode the requested size does not depend on the backing scale at
     // all.

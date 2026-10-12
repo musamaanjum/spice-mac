@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Fixed 1920×1080 and 1512×982 guest resolution presets using the existing
+  upstream resize path. The existing 150% zoom replaces the local fit option.
+
+### Fixed
+
+- Xcode 26 builds copy the Metal source for the app bundler to compile, install
+  the compiled shader in the renderer bundle's actual resource directory, and
+  seal data-only resource bundles with the outer app signature.
+
 ## [0.1.8] — 2026-08-28
 
 ### Added

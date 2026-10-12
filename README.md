@@ -14,7 +14,7 @@ UTM uses). Apple-Silicon only.
 > resize; keyboard including ⌘/modifiers; mouse with the guest cursor aligned to
 > the macOS pointer; bidirectional clipboard; and audio (needs a SPICE audio
 > device on the VM). USB redirection is plumbed via the Connection menu. The `.vv`
-> parser, keyboard map, and zoom geometry are also unit-tested (59 dependency-free
+> parser, keyboard map, and zoom geometry are also unit-tested (66 dependency-free
 > checks).
 >
 > | Feature | Status |
@@ -171,6 +171,12 @@ the matching build-time headers; keep the sysroot version in sync with them.
 3. For clipboard sharing and dynamic resolution, the guest must run
    **`spice-vdagent`**.
 
+**Connection ▸ Guest Resolution** adds fixed **1920 × 1080** and **1512 × 982**
+presets alongside **Match Window (Use Zoom)**. Selecting **View ▸ Zoom** returns
+to window-sized resolution; **150%** replaces the earlier local 1.5× fit option.
+Preset selections belong to each window, with the last choice seeding new windows.
+**Keep Current Resolution** preserves the old option to disable automatic resizing.
+
 What the app does with the `.vv`: parses the opaque `host` token, `proxy`
 (`http://node:3128`), `tls-port`, one-time `password`, `host-subject`, and CA
 (expanding the escaped `\n`), then connects over TLS through the node's
@@ -183,8 +189,8 @@ The pure-Swift libraries build and test with just the Swift toolchain (no Xcode)
 
 ```sh
 ( cd Packages/VVConfig      && swift run vvcheck )     # .vv parser: 24 checks
-( cd Packages/SpiceInputMap && swift run inputcheck )  # scancode map: 14 checks
-( cd Packages/DisplayScale  && swift run scalecheck )  # zoom geometry: 21 checks
+( cd Packages/SpiceInputMap && swift run inputcheck )  # scancode map: 18 checks
+( cd Packages/DisplayScale  && swift run scalecheck )  # zoom geometry: 24 checks
 ```
 
 The CocoaSpice fork patch was syntax-checked against the real vendored

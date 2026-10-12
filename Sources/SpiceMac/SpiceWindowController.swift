@@ -44,6 +44,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     /// reconfiguring another's guest. Seeded from `Preferences.displayZoom` (the
     /// last level picked anywhere) and changed only by the menu commands below.
     private var displayZoom: DisplayZoom = Preferences.displayZoom
+    private var guestResolutionPreset: GuestResolutionPreset = Preferences.guestResolutionPreset
 
     init(client: SpiceClient, sourceURL: URL) {
         self.client = client
@@ -258,9 +259,9 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private func requestResolutionForCurrentSize() {
         guard client.supportsDynamicResolution,
               let display = displayView.attachedDisplay else { return }
-        let target = DisplayScale.targetGuestSize(viewPoints: displayView.bounds.size,
+        guard let target = guestResolutionPreset.target(viewPoints: displayView.bounds.size,
                                                   backingScale: currentBackingScale,
-                                                  zoom: displayZoom)
+                                                  zoom: displayZoom) else { return }
         guard DisplayScale.needsRequest(target: target,
                                         current: display.displaySize,
                                         lastRequested: lastRequestedGuestSize) else { return }
@@ -432,6 +433,14 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     // Per-window, so these live here rather than on the app delegate. With no session
     // open nothing answers the selector and AppKit greys the submenu out.
 
+    @objc func setGuestResolutionPreset(_ sender: NSMenuItem) {
+        guard let preset = GuestResolutionPreset(rawValue: sender.tag) else { return }
+        guestResolutionPreset = preset
+        Preferences.guestResolutionPreset = preset
+        lastRequestedGuestSize = nil // allow reapplying a refused preset
+        scheduleResolutionRequest(after: 0.05)
+    }
+
     @objc func setDisplayZoom(_ sender: NSMenuItem) {
         guard let level = DisplayZoom(rawValue: sender.tag) else { return }
         apply(zoom: level)
@@ -447,6 +456,9 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     private func apply(zoom: DisplayZoom) {
+        // A zoom selection returns to upstream window-sized resolution.
+        guestResolutionPreset = .window
+        Preferences.guestResolutionPreset = .window
         displayZoom = zoom
         // Purely the seed for the next window; it does not reach any already open.
         Preferences.displayZoom = zoom
@@ -457,6 +469,9 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         switch menuItem.action {
         case #selector(sendCtrlAltDel(_:)), #selector(releaseCursor(_:)):
             return displayView.router.input != nil
+        case #selector(setGuestResolutionPreset(_:)):
+            menuItem.state = menuItem.tag == guestResolutionPreset.rawValue ? .on : .off
+            return client.supportsDynamicResolution && displayView.attachedDisplay != nil
         case #selector(setDisplayZoom(_:)):
             // Radio-style: exactly one level checked, recomputed on every menu open
             // so it tracks this window, including after ⌃⌘+ / ⌃⌘-.

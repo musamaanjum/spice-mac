@@ -51,6 +51,24 @@ enum Preferences {
     }
 
     private static let displayZoomKey = "DisplayZoom"
+    private static let guestResolutionPresetKey = "GuestResolutionPreset"
+
+    /// Seed for new windows, like displayZoom. Read the old preset keys only
+    /// until a selection has been saved using the new single key.
+    static var guestResolutionPreset: GuestResolutionPreset {
+        get {
+            let defaults = UserDefaults.standard
+            if let raw = defaults.object(forKey: guestResolutionPresetKey) as? Int {
+                return GuestResolutionPreset(rawValue: raw) ?? .window
+            }
+            if defaults.bool(forKey: "FixedCurrentScreenGuestDisplay") { return .window }
+            if defaults.bool(forKey: "Fixed1512GuestDisplay") { return .macBook }
+            if defaults.bool(forKey: "Fixed1080pGuestDisplay") { return .fullHD }
+            if (defaults.object(forKey: "AutoResizeGuestDisplay") as? Bool) == false { return .manual }
+            return .window
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: guestResolutionPresetKey) }
+    }
 
     /// The zoom level a NEWLY opened window starts at: host physical pixels per
     /// guest pixel. A seed, NOT a live global — zoom belongs to the window (see
@@ -58,7 +76,13 @@ enum Preferences {
     /// Default `.automatic` (zoom = backingScaleFactor), and raw 0 == `.automatic`,
     /// so a missing key reads as automatic.
     static var displayZoom: DisplayZoom {
-        get { DisplayZoom(rawValue: UserDefaults.standard.integer(forKey: displayZoomKey)) ?? .automatic }
+        get {
+            if UserDefaults.standard.object(forKey: displayZoomKey) == nil,
+               UserDefaults.standard.bool(forKey: "FixedCurrentScreenGuestDisplay") {
+                return .percent150
+            }
+            return DisplayZoom(rawValue: UserDefaults.standard.integer(forKey: displayZoomKey)) ?? .automatic
+        }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: displayZoomKey) }
     }
 }
