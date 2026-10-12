@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Xcode 26 builds copy the Metal source for the app bundler to compile, install
   the compiled shader in the renderer bundle's actual resource directory, and
   seal data-only resource bundles with the outer app signature.
+- **British/ISO backslash and pipe key.** Undo AppKit's ISO swap of the keys
+  beside left Shift and below Escape before mapping to PC scancodes. ANSI
+  keyboards keep their original mapping.
 
 ## [0.1.8] — 2026-08-28
 

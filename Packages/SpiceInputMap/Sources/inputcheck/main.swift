@@ -21,6 +21,18 @@ t.test("digit row") {
     t.expectEqual(code(MacVirtualKey.zero), 0x0B)
 }
 
+t.test("AppKit ISO swap is undone for both affected physical keys") {
+    t.expectEqual(SpiceScancode.cocoaSpiceCode(forMacVirtualKey: MacVirtualKey.grave,
+                                             isISOKeyboard: true), 0x56)
+    t.expectEqual(SpiceScancode.cocoaSpiceCode(forMacVirtualKey: MacVirtualKey.isoSection,
+                                             isISOKeyboard: true), 0x29)
+    t.expectEqual(SpiceScancode.cocoaSpiceCode(forMacVirtualKey: MacVirtualKey.grave,
+                                             isISOKeyboard: false), 0x29)
+    t.expectEqual(SpiceScancode.cocoaSpiceCode(forMacVirtualKey: MacVirtualKey.a,
+                                             isISOKeyboard: true), 0x1E)
+    t.expectEqual(SpiceScancode.breakBytes(0x56), [0xD6])
+}
+
 t.test("control and whitespace keys") {
     t.expectEqual(code(MacVirtualKey.escape), 0x01)
     t.expectEqual(code(MacVirtualKey.returnKey), 0x1C)
@@ -59,6 +71,29 @@ t.test("function keys F1-F12") {
     t.expectEqual(code(MacVirtualKey.f10), 0x44)
     t.expectEqual(code(MacVirtualKey.f11), 0x57)
     t.expectEqual(code(MacVirtualKey.f12), 0x58)
+}
+
+t.test("extended function keys F13-F20") {
+    let expected = [0x5D, 0x5E, 0x5F, 0x55, 0xE003, 0xE077, 0xE004, 0x5A]
+    let keys = [MacVirtualKey.f13, MacVirtualKey.f14, MacVirtualKey.f15, MacVirtualKey.f16,
+                MacVirtualKey.f17, MacVirtualKey.f18, MacVirtualKey.f19, MacVirtualKey.f20]
+    t.expectEqual(keys.compactMap(code), expected)
+}
+
+t.test("keypad equals, context menu, and media keys") {
+    t.expectEqual(code(MacVirtualKey.keypadEquals), 0x59)
+    t.expectEqual(code(MacVirtualKey.contextualMenu), 0xE05D)
+    t.expectEqual(code(MacVirtualKey.mute), 0xE020)
+    t.expectEqual(code(MacVirtualKey.volumeDown), 0xE02E)
+    t.expectEqual(code(MacVirtualKey.volumeUp), 0xE030)
+}
+
+t.test("JIS-specific physical keys") {
+    t.expectEqual(code(MacVirtualKey.jisYen), 0x7D)
+    t.expectEqual(code(MacVirtualKey.jisUnderscore), 0x73)
+    t.expectEqual(code(MacVirtualKey.jisKeypadComma), 0x5C)
+    t.expectEqual(code(MacVirtualKey.jisEisu), 0xF1)
+    t.expectEqual(code(MacVirtualKey.jisKana), 0xF2)
 }
 
 t.test("arrow keys are extended with correct make codes") {

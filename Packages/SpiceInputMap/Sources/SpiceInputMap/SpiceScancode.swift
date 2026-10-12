@@ -38,8 +38,14 @@ public enum SpiceScancode {
     }
 
     /// Map a macOS virtual key code to a set-1 scancode, or `nil` if unmapped.
-    public static func setOne(forMacVirtualKey keyCode: UInt16) -> Int? {
-        table[keyCode]
+    public static func setOne(forMacVirtualKey keyCode: UInt16, isISOKeyboard: Bool = false) -> Int? {
+        // AppKit exchanges the grave and ISO-section virtual keycodes on ISO
+        // hardware. Undo this before mapping physical positions to PC scancodes.
+        var physicalKey = keyCode
+        if isISOKeyboard && (keyCode == MacVirtualKey.grave || keyCode == MacVirtualKey.isoSection) {
+            physicalKey = keyCode == MacVirtualKey.grave ? MacVirtualKey.isoSection : MacVirtualKey.grave
+        }
+        return table[physicalKey]
     }
 
     /// Re-encode a canonical (`0xE000`-prefixed) scancode into the form CocoaSpice's
@@ -55,14 +61,15 @@ public enum SpiceScancode {
 
     /// Convenience: map a macOS virtual key code straight to the CocoaSpice
     /// `sendKey:code:` scancode, or `nil` if unmapped.
-    public static func cocoaSpiceCode(forMacVirtualKey keyCode: UInt16) -> Int? {
-        guard let c = setOne(forMacVirtualKey: keyCode) else { return nil }
+    public static func cocoaSpiceCode(forMacVirtualKey keyCode: UInt16, isISOKeyboard: Bool = false) -> Int? {
+        guard let c = setOne(forMacVirtualKey: keyCode, isISOKeyboard: isISOKeyboard) else { return nil }
         return cocoaSpiceEncoded(c)
     }
 
     private static let E = extendedPrefix
 
-    /// macOS virtual key code → set-1 scancode. US/ANSI layout.
+    /// macOS virtual key code → set-1 scancode. Includes the extra ISO/102nd key
+    /// used by British and other European physical keyboard layouts.
     public static let table: [UInt16: Int] = [
         // Letters
         MacVirtualKey.a: 0x1E, MacVirtualKey.b: 0x30, MacVirtualKey.c: 0x2E,
@@ -106,6 +113,19 @@ public enum SpiceScancode {
         MacVirtualKey.f4: 0x3E, MacVirtualKey.f5: 0x3F, MacVirtualKey.f6: 0x40,
         MacVirtualKey.f7: 0x41, MacVirtualKey.f8: 0x42, MacVirtualKey.f9: 0x43,
         MacVirtualKey.f10: 0x44, MacVirtualKey.f11: 0x57, MacVirtualKey.f12: 0x58,
+        MacVirtualKey.f13: 0x5D, MacVirtualKey.f14: 0x5E, MacVirtualKey.f15: 0x5F,
+        MacVirtualKey.f16: 0x55, MacVirtualKey.f17: E | 0x03,
+        MacVirtualKey.f18: E | 0x77, MacVirtualKey.f19: E | 0x04,
+        MacVirtualKey.f20: 0x5A,
+
+        // Extended / media keys
+        MacVirtualKey.mute: E | 0x20, MacVirtualKey.volumeDown: E | 0x2E,
+        MacVirtualKey.volumeUp: E | 0x30, MacVirtualKey.contextualMenu: E | 0x5D,
+
+        // JIS keyboard-only keys
+        MacVirtualKey.jisUnderscore: 0x73, MacVirtualKey.jisKeypadComma: 0x5C,
+        MacVirtualKey.jisKana: 0xF2, MacVirtualKey.jisEisu: 0xF1,
+        MacVirtualKey.jisYen: 0x7D,
 
         // Keypad
         MacVirtualKey.keypadClear: 0x45,        // NumLock
@@ -114,6 +134,7 @@ public enum SpiceScancode {
         MacVirtualKey.keypadMinus: 0x4A,
         MacVirtualKey.keypadPlus: 0x4E,
         MacVirtualKey.keypadEnter: E | 0x1C,
+        MacVirtualKey.keypadEquals: 0x59,
         MacVirtualKey.keypadDecimal: 0x53,
         MacVirtualKey.keypad0: 0x52, MacVirtualKey.keypad1: 0x4F,
         MacVirtualKey.keypad2: 0x50, MacVirtualKey.keypad3: 0x51,

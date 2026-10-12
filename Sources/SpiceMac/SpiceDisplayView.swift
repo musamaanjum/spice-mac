@@ -276,6 +276,10 @@ final class SpiceDisplayView: MTKView {
 
         // Keep explicit client escape hatches local while guest focus owns ordinary
         // app shortcuts such as Cmd-W/C/V/O.
+        if flags.contains(.command), flags.contains(.control),
+           !flags.contains(.option), ["+", "=", "-", "0"].contains(key ?? "") {
+            return false // upstream View > Zoom shortcuts
+        }
         if key == "f", flags.contains(.command), flags.contains(.control) {
             return false
         }

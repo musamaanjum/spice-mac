@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import AppKit
+import Carbon
 import CocoaSpice
 import SpiceInputMap
 
@@ -66,7 +67,7 @@ public final class SpiceInputRouter {
         // The guest OS already repeats held keys after a single make code; forwarding
         // macOS repeat keyDowns can multiply characters on slower remote sessions.
         if event.isARepeat { return }
-        sendKey(event.keyCode, pressed: true)
+        sendKey(event, pressed: true)
     }
 
     public func keyUp(_ event: NSEvent) {
@@ -74,15 +75,15 @@ public final class SpiceInputRouter {
             return
         }
         reconcileModifiers(event.modifierFlags)
-        sendKey(event.keyCode, pressed: false)
+        sendKey(event, pressed: false)
     }
 
     /// Send a complete shortcut chord when AppKit routes the event through
     /// performKeyEquivalent. A matching keyUp is not guaranteed on that path.
     public func keyEquivalent(_ event: NSEvent) {
         reconcileModifiers(event.modifierFlags)
-        sendKey(event.keyCode, pressed: true)
-        sendKey(event.keyCode, pressed: false)
+        sendKey(event, pressed: true)
+        sendKey(event, pressed: false)
         synthesizedKeyEquivalentKeyUps.insert(event.keyCode)
     }
 
@@ -145,9 +146,19 @@ public final class SpiceInputRouter {
         }
     }
 
-    private func sendKey(_ keyCode: UInt16, pressed: Bool) {
+    private func sendKey(_ event: NSEvent, pressed: Bool) {
+        // Prefer this event's device type, so external ANSI and built-in ISO
+        // keyboards can coexist. Synthetic events may omit the device type.
+        let eventType = event.cgEvent?.getIntegerValueField(.keyboardEventKeyboardType) ?? 0
+        let keyboardType = eventType > 0 ? Int16(truncatingIfNeeded: eventType) : Int16(LMGetKbdType())
+        sendKey(event.keyCode, pressed: pressed,
+                isISOKeyboard: KBGetLayoutType(keyboardType) == kKeyboardISO)
+    }
+
+    private func sendKey(_ keyCode: UInt16, pressed: Bool, isISOKeyboard: Bool = false) {
         guard let input,
-              let code = SpiceScancode.cocoaSpiceCode(forMacVirtualKey: keyCode) else { return }
+              let code = SpiceScancode.cocoaSpiceCode(forMacVirtualKey: keyCode,
+                                                    isISOKeyboard: isISOKeyboard) else { return }
         // Swift imports CSInput's -sendKey:code: as send(_:code:).
         input.send(pressed ? .press : .release, code: Int32(code))
     }
