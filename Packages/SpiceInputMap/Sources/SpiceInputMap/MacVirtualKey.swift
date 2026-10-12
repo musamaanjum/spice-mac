@@ -58,6 +58,11 @@ public enum MacVirtualKey {
     public static let period: UInt16 = 0x2F
     public static let grave: UInt16 = 0x32
 
+    // Extra key between left Shift and Z on ISO keyboards. On a British layout
+    // this is the physical backslash/pipe key. Carbon names it kVK_ISO_Section,
+    // independent of the characters printed by the active layout.
+    public static let isoSection: UInt16 = 0x0A
+
     // Control / whitespace
     public static let returnKey: UInt16 = 0x24
     public static let tab: UInt16 = 0x30
@@ -86,6 +91,7 @@ public enum MacVirtualKey {
     public static let keypadDivide: UInt16 = 0x4B
     public static let keypadEnter: UInt16 = 0x4C
     public static let keypadMinus: UInt16 = 0x4E
+    public static let keypadEquals: UInt16 = 0x51
     public static let keypad0: UInt16 = 0x52
     public static let keypad1: UInt16 = 0x53
     public static let keypad2: UInt16 = 0x54
@@ -110,6 +116,20 @@ public enum MacVirtualKey {
     public static let f10: UInt16 = 0x6D
     public static let f11: UInt16 = 0x67
     public static let f12: UInt16 = 0x6F
+    public static let f13: UInt16 = 0x69
+    public static let f14: UInt16 = 0x6B
+    public static let f15: UInt16 = 0x71
+    public static let f16: UInt16 = 0x6A
+    public static let f17: UInt16 = 0x40
+    public static let f18: UInt16 = 0x4F
+    public static let f19: UInt16 = 0x50
+    public static let f20: UInt16 = 0x5A
+
+    // Extended / media keys that AppKit can deliver as normal key events.
+    public static let volumeUp: UInt16 = 0x48
+    public static let volumeDown: UInt16 = 0x49
+    public static let mute: UInt16 = 0x4A
+    public static let contextualMenu: UInt16 = 0x6E
 
     // Navigation (all "extended" on a PC)
     public static let help: UInt16 = 0x72            // → Insert
@@ -121,4 +141,11 @@ public enum MacVirtualKey {
     public static let rightArrow: UInt16 = 0x7C
     public static let downArrow: UInt16 = 0x7D
     public static let upArrow: UInt16 = 0x7E
+
+    // JIS-only physical keys.
+    public static let jisYen: UInt16 = 0x5D
+    public static let jisUnderscore: UInt16 = 0x5E
+    public static let jisKeypadComma: UInt16 = 0x5F
+    public static let jisEisu: UInt16 = 0x66
+    public static let jisKana: UInt16 = 0x68
 }

@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   existing app-bundling step to compile, avoiding an early duplicate Metal
   compilation during `swift build`. Data-only SwiftPM resource bundles are now
   sealed by the outer app signature instead of being incorrectly signed as code.
+- **British/ISO backslash and pipe key.** Undo AppKit's ISO swap of the keys
+  beside left Shift and below Escape before mapping to PC scancodes. ANSI
+  keyboards keep their original mapping.
 
 ## [0.1.7] — 2026-06-15
 
