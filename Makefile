@@ -7,7 +7,7 @@ export DEVELOPER_DIR
 
 .DEFAULT_GOAL := help
 
-.PHONY: help doctor setup build run test all openssl icon debug root release check-version clean distclean
+.PHONY: help doctor setup build run test all openssl libusb icon debug root release check-version clean distclean
 
 help: ## Show this help
 	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z0-9_-]+:.*## /{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
@@ -31,10 +31,13 @@ test: ## Run the dependency-free check runners and AppKit keyboard-capture check
 	@./scripts/test-keyboard-capture.sh
 	@./scripts/test-guest-key-delivery.sh
 
-all: doctor setup build ## Doctor, fetch the sysroot, and build (first-time setup)
+all: doctor setup libusb build ## Doctor, fetch sysroot, update libusb, and build (first-time setup)
 
 openssl: ## Upgrade the bundled OpenSSL (only needed on a raw UTM sysroot)
 	@./scripts/upgrade-openssl.sh
+
+libusb: ## Upgrade the bundled libusb to 1.0.30 (macOS USB re-enumeration fixes)
+	@./scripts/upgrade-libusb.sh
 
 icon: ## Regenerate Resources/AppIcon.icns from design/icon/source.png
 	@./scripts/make-icon.sh

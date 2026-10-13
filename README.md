@@ -133,6 +133,7 @@ forget it (`make help` lists every target). By hand it's:
 
 ```sh
 ./scripts/fetch-sysroot.sh   # pinned, checksummed sysroot (OpenSSL already 3.5.6 LTS)
+./scripts/upgrade-libusb.sh  # rebuild libusb 1.0.30 with macOS re-enumeration fixes
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/build-app.sh
 open build/SpiceMac.app
 ```
@@ -268,6 +269,14 @@ stay bilinear or it aliases badly.
 
 ## USB redirection
 
+On macOS 26 (Tahoe), some isochronous USB endpoints can trigger a kernel panic
+inside Apple's `IOUSBHostFamily` during `GetEndpointPropertiesV3`. This checkout's
+`upgrade-libusb.sh` applies a workaround that uses the already successful pipe
+query for isochronous endpoints and preserves the original bulk/interrupt packet
+size handling. Run `make libusb build` to install it after fetching the sysroot.
+The upgrade runs hardware-free regression checks before installing the library.
+See [the crash investigation](docs/usb-kernel-panic.md) for evidence and limits.
+
 USB redirect is available under **Connection ▸ USB Devices**, but macOS gates it:
 `LIBUSB_ERROR_ACCESS` ("could not claim interface") means a **built-in kernel
 driver already owns the device**. macOS auto-binds drivers to mass storage, HID
@@ -350,6 +359,7 @@ building from source, and rebuilding to verify a download, will always stay free
 | `fetch-sysroot.sh` | `setup` | Stage the native SPICE frameworks (pinned, checksummed) |
 | `build-app.sh` | `build` | Build + assemble `build/SpiceMac.app` |
 | `upgrade-openssl.sh` | `openssl` | Rebuild OpenSSL → 3.5.6 (only on a raw UTM sysroot) |
+| `upgrade-libusb.sh` | `libusb` | Rebuild libusb → 1.0.30 (macOS USB re-enumeration fixes) |
 | `make-icon.sh` | `icon` | Regenerate `Resources/AppIcon.icns` from `design/icon/` |
 | `debug-run.sh` | `debug VV=…` | Launch with verbose SPICE/CocoaSpice tracing |
 | `run-as-root.sh` | `root VV=…` | Launch as root for USB capture (kernel-claimed devices) |

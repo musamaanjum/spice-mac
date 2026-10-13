@@ -56,6 +56,11 @@ if [ "$ASSUME_YES" != "1" ]; then
     esac
 fi
 
+if [[ "$EUID" -eq 0 ]]; then
+    echo "Launching as root for USB capture. Quit with ⌘Q." >&2
+    exec "$APP" "$VV"
+fi
+
 echo "Launching as root (you'll be prompted for your password). Quit with ⌘Q." >&2
 # sudo's default env_reset drops DYLD_*/library-injection vars from the root process;
 # we deliberately do NOT pass -E. `--` stops sudo option parsing before the command.

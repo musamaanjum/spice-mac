@@ -1,0 +1,26 @@
+--- a/libusb/os/darwin_usb.c
++++ b/libusb/os/darwin_usb.c
+@@ -252,7 +252,7 @@
+   uint8_t number;
+   uint8_t direction;
+   uint8_t transfer_type;
+-  uint16_t max_packet_size; // without multipliers, not "full"
++  uint16_t max_packet_size; // uncooked for bulk/interrupt; unused for isochronous I/O
+   uint8_t interval;
+ };
+ typedef struct darwin_pipe_properties darwin_pipe_properties_t;
+@@ -273,5 +273,12 @@
+-    // GetEndpointPropertiesV3 returns the wMaxPacketSize without burst and mul multipliers.
+-    kresult = (*IOINTERFACE_V(cInterface, 550))->GetEndpointPropertiesV3 (IOINTERFACE(cInterface), &pipe_properties);
++    // Tahoe's GetEndpointPropertiesV3 can panic IOUSBHostFamily for isochronous
++    // endpoints (libusb issue #1762; also observed after SET_INTERFACE in SpiceMac).
++    // GetPipePropertiesV3 already supplies everything used for isochronous I/O:
++    // the endpoint address and interval. Its cooked packet size is not used by
++    // submit_iso_transfer; only bulk/interrupt I/O needs the uncooked value for ZLP.
++    // Never enter the implicated kernel call for isochronous endpoints on 26+.
++    if (get_running_version() < 260000 || pipe_properties.bTransferType != kUSBIsoc) {
++      kresult = (*IOINTERFACE_V(cInterface, 550))->GetEndpointPropertiesV3 (IOINTERFACE(cInterface), &pipe_properties);
++    }
+     if (kIOReturnSuccess == kresult) {
+       out->number = pipe_properties.bEndpointNumber;
+       out->direction = pipe_properties.bDirection;

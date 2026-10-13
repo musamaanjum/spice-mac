@@ -13,6 +13,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Launch directly when `run-as-root.sh` is already running as root, allowing
+  sudo-based launchers to capture USB devices without a nested sudo invocation.
+- Build libusb with `pipe()`/`fcntl()` instead of Xcode 27's weak `pipe2()` import,
+  which crashes during startup on macOS 26. Verify actual library initialization,
+  event handling, and shutdown before installing the generated framework.
+- Avoid `GetEndpointPropertiesV3` for isochronous endpoints on macOS 26+ in the
+  bundled libusb build. A captured USB device triggered a kernel data abort in
+  Apple's `IOUSBHostFamily` through this call. Preserve bulk/interrupt packet size
+  queries and verify the workaround without accessing physical USB devices.
 - **Fullscreen keyboard capture.** Capture system shortcuts at the WindowServer
   hotkey layer while the fullscreen guest owns the keyboard, instead of suppressing
   the macOS process-switcher UI. Ctrl+Tab reaches the guest unchanged in fullscreen
@@ -36,6 +45,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **British/ISO backslash and pipe key.** Undo AppKit's ISO swap of the keys
   beside left Shift and below Escape before mapping to PC scancodes. ANSI
   keyboards keep their original mapping.
+- **Updated the bundled libusb from 1.0.25 to 1.0.30.** This brings in the
+  upstream Darwin re-enumeration fixes needed when a captured Android USB device
+  disconnects and returns with a replacement IOKit service. Added a reproducible,
+  checksummed `upgrade-libusb.sh` with an ABI gate for spice-client-glib and
+  usbredirhost before it swaps the framework binary.
 
 ## [0.1.8] — 2026-08-28
 

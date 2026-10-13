@@ -173,6 +173,12 @@ if [ -n "$XCODE_SWIFT_RPATH" ]; then
 fi
 
 # --- Sign ------------------------------------------------------------------
+# Catch SDK/runtime incompatibilities in the actual bundled USB library before
+# sealing or packaging the app. This initializes libusb without device capture.
+log "checking bundled libusb startup"
+"$ROOT/scripts/test-libusb-runtime.sh" \
+    "$APP/Contents/Frameworks/usb-1.0.0.framework/Versions/A/usb-1.0.0"
+
 SIGN_ARGS=(--force --sign "$SIGN_IDENTITY")
 if [ "$SIGN_IDENTITY" = "-" ]; then
     SIGN_ARGS+=(--timestamp=none)
