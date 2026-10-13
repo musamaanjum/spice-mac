@@ -24,10 +24,12 @@ build: ## Build and assemble build/SpiceMac.app
 run: ## Open build/SpiceMac.app
 	@open build/SpiceMac.app
 
-test: ## Run the dependency-free check runners (vvcheck + inputcheck + scalecheck)
+test: ## Run the dependency-free check runners and AppKit keyboard-capture checks
 	@( cd Packages/VVConfig && swift run vvcheck )
 	@( cd Packages/SpiceInputMap && swift run inputcheck )
 	@( cd Packages/DisplayScale && swift run scalecheck )
+	@./scripts/test-keyboard-capture.sh
+	@./scripts/test-guest-key-delivery.sh
 
 all: doctor setup build ## Doctor, fetch the sysroot, and build (first-time setup)
 

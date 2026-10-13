@@ -177,6 +177,15 @@ to window-sized resolution; **150%** replaces the earlier local 1.5× fit option
 Preset selections belong to each window, with the last choice seeding new windows.
 **Keep Current Resolution** preserves the old option to disable automatic resizing.
 
+While the guest has focus in fullscreen, SpiceMac captures system shortcuts and
+delivers **Control+Tab** unchanged to the VM. In window mode **Control+Tab** stays
+with macOS. Press **Control+Option+R** (**Connection ▸ Release
+Keyboard and Cursor**) to return keyboard control to macOS. Click the guest to
+capture it again. Leaving fullscreen or disconnecting also releases the capture.
+The fullscreen **Release keyboard to Mac** button provides the same escape with
+the mouse. An explicit release stays in effect until you click the VM again or
+start a new fullscreen session.
+
 What the app does with the `.vv`: parses the opaque `host` token, `proxy`
 (`http://node:3128`), `tls-port`, one-time `password`, `host-subject`, and CA
 (expanding the escaped `\n`), then connects over TLS through the node's
@@ -192,6 +201,13 @@ The pure-Swift libraries build and test with just the Swift toolchain (no Xcode)
 ( cd Packages/SpiceInputMap && swift run inputcheck )  # keyboard/scroll map: 22 checks
 ( cd Packages/DisplayScale  && swift run scalecheck )  # zoom geometry: 24 checks
 ```
+
+On macOS, `make test` also runs 72 AppKit checks for Tab delivery, keyboard
+release, and presentation-option restoration, plus 10 checks across two native
+fullscreen entry/exit cycles and 13 checks of the guest scancodes sent for captured
+shortcuts. Native fullscreen checks read the WindowServer hotkey mode through
+capture, release, focus changes, and exit. These open test windows and require a
+logged-in desktop session.
 
 The CocoaSpice fork patch was syntax-checked against the real vendored
 glib/spice headers (`clang -fsyntax-only`, exit 0).

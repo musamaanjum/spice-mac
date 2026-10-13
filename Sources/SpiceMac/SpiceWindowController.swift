@@ -15,8 +15,10 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private let displayView = SpiceDisplayView()
     private let containerView = NSView()
     private let statusLabel = NSTextField(labelWithString: "Connecting…")
+    private let keyboardReleaseButton = NSButton()
     private var cancellables = Set<AnyCancellable>()
-    private var savedPresentationOptions: NSApplication.PresentationOptions?
+    private var isExitingFullScreen = false
+    private var isEnteringFullScreen = false
 
     /// Called when the window closes so the app can drop its reference.
     var onClose: (() -> Void)?
@@ -32,6 +34,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
 
     /// Block-based NotificationCenter observers, removed on close.
     private var notificationObservers: [NSObjectProtocol] = []
+    private var activeSpaceObserver: NSObjectProtocol?
 
     /// Backing scale of the screen this window was last seen on. Seeded at creation
     /// so a window that merely OPENS on a Retina screen is not mistaken for one
@@ -65,9 +68,10 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     deinit {
-        restoreHostPresentationOptions()
+        HostPresentationController.shared.endFullScreen(owner: self)
         pendingResolutionRequest?.cancel()
         for observer in notificationObservers { NotificationCenter.default.removeObserver(observer) }
+        if let activeSpaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(activeSpaceObserver) }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -89,6 +93,9 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         displayView.onBackingScaleChange = { [weak self] _ in
             self?.screenChanged()
         }
+        displayView.onGuestInteractionChange = { [weak self] in
+            self?.updateHostPresentationOptions()
+        }
 
         statusLabel.alignment = .center
         statusLabel.maximumNumberOfLines = 0
@@ -100,6 +107,21 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             statusLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             statusLabel.widthAnchor.constraint(lessThanOrEqualTo: containerView.widthAnchor, multiplier: 0.8),
+        ])
+
+        keyboardReleaseButton.title = "Release keyboard to Mac  ⌃⌥R"
+        keyboardReleaseButton.bezelStyle = .rounded
+        keyboardReleaseButton.controlSize = .small
+        keyboardReleaseButton.font = .systemFont(ofSize: 12, weight: .medium)
+        keyboardReleaseButton.target = self
+        keyboardReleaseButton.action = #selector(releaseCursor(_:))
+        keyboardReleaseButton.toolTip = "Release the keyboard, then use Command+Tab to switch to macOS. Click the VM to capture again."
+        keyboardReleaseButton.isHidden = true
+        keyboardReleaseButton.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(keyboardReleaseButton)
+        NSLayoutConstraint.activate([
+            keyboardReleaseButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            keyboardReleaseButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 10),
         ])
 
         window.contentView = containerView
@@ -118,11 +140,11 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         client.onDisplayDestroyed = { [weak self] _ in self?.displayView.detach() }
         client.onInputAvailable = { [weak self] input in
             guard let self else { return }
-            self.displayView.router.input = input
+            self.displayView.setInput(input)
             self.displayView.router.requestMouseMode(server: false)
-            self.window?.makeFirstResponder(self.displayView)
+            if !self.displayView.keyboardReleased { self.window?.makeFirstResponder(self.displayView) }
         }
-        client.onInputUnavailable = { [weak self] _ in self?.displayView.router.input = nil }
+        client.onInputUnavailable = { [weak self] _ in self?.displayView.setInput(nil) }
 
         client.$status
             .receive(on: RunLoop.main)
@@ -156,6 +178,11 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             self?.updateHostPresentationOptions()
         }
         notificationObservers.append(hideChrome)
+        activeSpaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil, queue: .main) { [weak self] _ in
+            self?.updateHostPresentationOptions()
+        }
     }
 
     private func attachDisplay(_ display: CSDisplay) {
@@ -168,7 +195,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         // spiceDisplayUpdated).
         scheduleResolutionRequest(after: 0.15)
         statusLabel.isHidden = true
-        window?.makeFirstResponder(displayView)
+        if !displayView.keyboardReleased { window?.makeFirstResponder(displayView) }
         if client.prefersFullscreen, window?.styleMask.contains(.fullScreen) == false {
             window?.toggleFullScreen(nil)
         }
@@ -200,6 +227,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             showStatus("Connection failed.\n\(message)")
         }
         window?.title = title(for: status)
+        updateHostPresentationOptions()
     }
 
     private func title(for status: SpiceClient.Status) -> String {
@@ -349,47 +377,89 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
+        isEnteringFullScreen = false
+        isExitingFullScreen = false
+        if !displayView.keyboardReleased { window?.makeFirstResponder(displayView) }
         updateHostPresentationOptions()
         scheduleResolutionRequest()
     }
 
-    func windowDidExitFullScreen(_ notification: Notification) {
+    func window(_ window: NSWindow, willUseFullScreenPresentationOptions proposedOptions: NSApplication.PresentationOptions) -> NSApplication.PresentationOptions {
+        // Let AppKit finish its Space transition before capturing system hotkeys
+        // in didEnterFullScreen. This callback owns only fullscreen chrome.
+        isEnteringFullScreen = true
+        isExitingFullScreen = false
+        displayView.captureKeyboard()
+        return HostPresentationController.shared.fullScreenOptions(owner: self,
+            proposedOptions: proposedOptions,
+            hideChrome: Preferences.hideHostChromeInFullScreen)
+    }
+
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) {
+        isEnteringFullScreen = false
+        HostPresentationController.shared.endFullScreen(owner: self)
+        updateHostPresentationOptions()
+    }
+
+    func windowWillExitFullScreen(_ notification: Notification) {
+        isExitingFullScreen = true
         restoreHostPresentationOptions()
+        updateKeyboardReleaseControl()
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        isExitingFullScreen = false
+        HostPresentationController.shared.endFullScreen(owner: self)
+        updateKeyboardReleaseControl()
         scheduleResolutionRequest()
     }
 
+    func windowDidFailToExitFullScreen(_ window: NSWindow) {
+        isExitingFullScreen = false
+        updateHostPresentationOptions()
+    }
+
     private func updateHostPresentationOptions() {
-        guard window?.styleMask.contains(.fullScreen) == true else {
-            restoreHostPresentationOptions()
+        defer { updateKeyboardReleaseControl() }
+        guard !isEnteringFullScreen else { return }
+        guard !isExitingFullScreen, NSApp.isActive, window?.isKeyWindow == true,
+              window?.styleMask.contains(.fullScreen) == true,
+              window?.isOnActiveSpace == true, window?.isMiniaturized == false,
+              window?.occlusionState.contains(.visible) == true else {
+            HostPresentationController.shared.restore(owner: self, useWindowedOptions: true)
             return
         }
-        guard Preferences.hideHostChromeInFullScreen else {
-            restoreHostPresentationOptions()
-            return
-        }
+        HostPresentationController.shared.update(owner: self,
+            hideChrome: Preferences.hideHostChromeInFullScreen,
+            captureKeyboard: shouldCaptureKeyboard)
+    }
 
-        if savedPresentationOptions == nil {
-            savedPresentationOptions = NSApp.presentationOptions
-        }
-
-        var options = NSApp.presentationOptions
-        options.remove(.autoHideDock)
-        options.remove(.autoHideMenuBar)
-        options.insert(.hideDock)
-        options.insert(.hideMenuBar)
-        NSApp.presentationOptions = options
+    private var shouldCaptureKeyboard: Bool {
+        !displayView.keyboardReleased && displayView.hasKeyboardFocus && displayView.router.input != nil
+            && displayView.attachedDisplay != nil && !displayView.isHidden
+            && window?.attachedSheet == nil
     }
 
     private func restoreHostPresentationOptions() {
-        guard let savedPresentationOptions else { return }
-        NSApp.presentationOptions = savedPresentationOptions
-        self.savedPresentationOptions = nil
+        HostPresentationController.shared.restore(owner: self)
+    }
+
+    private func updateKeyboardReleaseControl() {
+        keyboardReleaseButton.isHidden = isEnteringFullScreen || isExitingFullScreen
+            || window?.styleMask.contains(.fullScreen) != true
+            || displayView.router.input == nil || displayView.attachedDisplay == nil
+            || displayView.isHidden || window?.attachedSheet != nil
+        keyboardReleaseButton.isEnabled = shouldCaptureKeyboard
+        keyboardReleaseButton.title = shouldCaptureKeyboard
+            ? "Release keyboard to Mac  ⌃⌥R"
+            : "Mac keyboard · Click VM to capture"
     }
 
     // MARK: - Window lifecycle
 
     func windowDidBecomeKey(_ notification: Notification) {
-        window?.makeFirstResponder(displayView)
+        if !displayView.keyboardReleased { window?.makeFirstResponder(displayView) }
+        updateHostPresentationOptions()
         client.usbManager?.delegate = self
         refreshUSBMenu()
     }
@@ -401,13 +471,30 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         // switches / miniaturize that don't deactivate the app).
         displayView.router.releaseAll()
         displayView.updateHostCursorVisibility()
+        HostPresentationController.shared.restore(owner: self, useWindowedOptions: true)
+    }
+
+    func windowDidChangeOcclusionState(_ notification: Notification) {
+        updateHostPresentationOptions()
+    }
+
+    func windowWillBeginSheet(_ notification: Notification) {
+        displayView.router.releaseAll()
+        restoreHostPresentationOptions()
+    }
+
+    func windowDidEndSheet(_ notification: Notification) {
+        updateHostPresentationOptions()
     }
 
     func windowWillClose(_ notification: Notification) {
+        HostPresentationController.shared.endFullScreen(owner: self)
         pendingResolutionRequest?.cancel()
         pendingResolutionRequest = nil
         for observer in notificationObservers { NotificationCenter.default.removeObserver(observer) }
         notificationObservers.removeAll()
+        if let activeSpaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(activeSpaceObserver) }
+        activeSpaceObserver = nil
         displayView.router.releaseAll()
         client.disconnect()
         displayView.detach()
@@ -425,7 +512,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     @objc func releaseCursor(_ sender: Any?) {
-        displayView.router.releaseAll()
+        displayView.releaseKeyboardAndCursor()
     }
 
     // MARK: - Zoom menu (responder chain targets)

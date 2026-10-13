@@ -57,7 +57,7 @@ enum MainMenu {
         connItem.submenu = connMenu
         connMenu.addItem(withTitle: "Send Ctrl-Alt-Del",
                          action: #selector(SpiceWindowController.sendCtrlAltDel(_:)), keyEquivalent: "")
-        let release = NSMenuItem(title: "Release Cursor",
+        let release = NSMenuItem(title: "Release Keyboard and Cursor",
                                  action: #selector(SpiceWindowController.releaseCursor(_:)), keyEquivalent: "r")
         release.keyEquivalentModifierMask = [.control, .option]
         connMenu.addItem(release)

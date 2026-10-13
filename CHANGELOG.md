@@ -13,6 +13,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Fullscreen keyboard capture.** Capture system shortcuts at the WindowServer
+  hotkey layer while the fullscreen guest owns the keyboard, instead of suppressing
+  the macOS process-switcher UI. Ctrl+Tab reaches the guest unchanged in fullscreen
+  and stays with macOS in window mode. Control+Option+R releases keyboard and
+  cursor; clicking the guest captures them again. Capture also releases on focus
+  loss, dialogs, fullscreen exit, and disconnection.
+- Capture after native fullscreen entry and restore the previous hotkey mode on
+  release, focus loss, or exit. Preserve explicit keyboard release across focus
+  changes, and provide a visible fullscreen release button.
+- Recover missing modifier presses before delivering captured shortcuts, keeping
+  custom guest Ctrl+Tab bindings intact. Restore windowed Dock settings while a
+  fullscreen session is minimized or on another Space.
+- Recover the next physical shortcut press when AppKit consumes a key-equivalent
+  key-up. Add Control/Tab diagnostics through the SPICE inputs channel to
+  `~/Library/Logs/SpiceMac/Keyboard.log`.
 - **Reversed trackpad and mouse-wheel scrolling.** Convert AppKit's scroll Y
   sign to CocoaSpice's convention while preserving macOS Natural Scrolling.
 - Xcode 26 builds copy the Metal source for the app bundler to compile, install

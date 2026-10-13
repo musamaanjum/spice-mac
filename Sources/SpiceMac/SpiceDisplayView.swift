@@ -12,6 +12,11 @@ import DisplayScale
 final class SpiceDisplayView: MTKView {
 
     let router = SpiceInputRouter()
+    private var keyboardMonitor: GuestKeyboardMonitor?
+    private(set) var hasKeyboardFocus = false
+    private(set) var keyboardReleased = false
+    private var hostTabKeyUpPending = false
+    var onGuestInteractionChange: (() -> Void)?
     private var renderer: CSMetalRenderer?
     private(set) weak var attachedDisplay: CSDisplay?
 
@@ -30,6 +35,7 @@ final class SpiceDisplayView: MTKView {
     /// ⌘H, …) — those don't fire mouseExited/resignFirstResponder, so without this
     /// a hidden cursor could stay hidden system-wide.
     private var appResignObserver: NSObjectProtocol?
+    private var appBecomeActiveObserver: NSObjectProtocol?
 
     /// Called when the backing scale factor ACTUALLY changes. The view knows
     /// nothing about zoom; the window controller owns what guest resolution that
@@ -66,6 +72,27 @@ final class SpiceDisplayView: MTKView {
         preferredFramesPerSecond = 60
         wantsLayer = true
         layer?.isOpaque = true
+        router.onKeyboardTrace = GuestKeyboardTrace.record
+
+        keyboardMonitor = GuestKeyboardMonitor(
+            isGuestFocused: { [weak self] event in
+                guard let self, let window = self.window else { return false }
+                if event.keyCode == 48 {
+                    GuestKeyboardTrace.record("focus fullscreen=\(window.styleMask.contains(.fullScreen)) active=\(NSApp.isActive) key=\(window.isKeyWindow) firstResponder=\(window.firstResponder === self) released=\(self.keyboardReleased) input=\(self.router.input != nil) display=\(self.attachedDisplay != nil) space=\(window.isOnActiveSpace) visible=\(window.occlusionState.contains(.visible)) sheet=\(window.attachedSheet != nil)")
+                }
+                return NSApp.isActive && window.isKeyWindow && window.attachedSheet == nil
+                    && window.isOnActiveSpace && !window.isMiniaturized
+                    && window.occlusionState.contains(.visible)
+                    && (event.window == nil || event.window === window)
+                    && window.firstResponder === self && self.router.input != nil
+                    && !self.keyboardReleased
+                    && self.attachedDisplay != nil && !self.isHidden
+            },
+            isFullScreen: { [weak self] in self?.window?.styleMask.contains(.fullScreen) == true },
+            keyDown: { [weak self] in self?.router.keyDown($0) },
+            keyUp: { [weak self] in self?.router.keyUp($0) },
+            release: { [weak self] in self?.releaseKeyboardAndCursor() },
+            trace: GuestKeyboardTrace.record)
 
         hideCursorPrefObserver = NotificationCenter.default.addObserver(
             forName: .hideHostCursorChanged, object: nil, queue: .main) { [weak self] _ in
@@ -73,13 +100,20 @@ final class SpiceDisplayView: MTKView {
         }
         appResignObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.router.releaseAll()
             self?.showHostCursor()
+            self?.onGuestInteractionChange?()
+        }
+        appBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.onGuestInteractionChange?()
+            self?.updateHostCursorVisibility()
         }
     }
 
     deinit {
         showHostCursor()
-        for observer in [hideCursorPrefObserver, appResignObserver].compactMap({ $0 }) {
+        for observer in [hideCursorPrefObserver, appResignObserver, appBecomeActiveObserver].compactMap({ $0 }) {
             NotificationCenter.default.removeObserver(observer)
         }
     }
@@ -112,6 +146,7 @@ final class SpiceDisplayView: MTKView {
             [weak self] _, _ in
             DispatchQueue.main.async { self?.updateViewport() }
         }
+        onGuestInteractionChange?()
     }
 
     func detach() {
@@ -124,6 +159,8 @@ final class SpiceDisplayView: MTKView {
         renderer = nil
         currentFilter = nil   // the next renderer starts with CocoaSpice's linear default
         attachedDisplay = nil
+        router.releaseAll()
+        onGuestInteractionChange?()
         // NB: do NOT clear router.input here. The inputs channel is independent of
         // the display; its lifecycle is driven by spiceInput{Available,Unavailable}.
         // attachDisplay() calls detach() on every (re)attach (e.g. when the agent
@@ -239,7 +276,10 @@ final class SpiceDisplayView: MTKView {
     override var canBecomeKeyView: Bool { true }
 
     override func becomeFirstResponder() -> Bool {
-        super.becomeFirstResponder()
+        guard super.becomeFirstResponder() else { return false }
+        hasKeyboardFocus = true
+        onGuestInteractionChange?()
+        return true
     }
 
     // Grab keyboard focus as soon as we're placed in a window.
@@ -253,15 +293,45 @@ final class SpiceDisplayView: MTKView {
     }
 
     override func resignFirstResponder() -> Bool {
+        guard super.resignFirstResponder() else { return false }
+        hasKeyboardFocus = false
         // Flush held keys/modifiers/buttons so nothing stays latched in the guest
         // when focus leaves (e.g. Cmd-Tab); also avoids the on-return modifier desync.
         router.releaseAll()
         showHostCursor()
-        return super.resignFirstResponder()
+        onGuestInteractionChange?()
+        return true
+    }
+
+    func setInput(_ input: CSInput?) {
+        router.releaseAll()
+        router.input = input
+        onGuestInteractionChange?()
+    }
+
+    func releaseKeyboardAndCursor() {
+        keyboardReleased = true
+        router.releaseAll()
+        window?.makeFirstResponder(nil)
+        showHostCursor()
+        onGuestInteractionChange?()
+    }
+
+    func captureKeyboard() {
+        keyboardReleased = false
+        hostTabKeyUpPending = false
+        window?.makeFirstResponder(self)
+        onGuestInteractionChange?()
+        updateHostCursorVisibility()
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard router.input != nil, shouldSendKeyEquivalentToGuest(event) else {
+        if event.keyCode == 48 { GuestKeyboardTrace.record("view keyEquivalent flags=\(event.modifierFlags.rawValue)") }
+        if GuestKeyboardPolicy.routesTabToHost(event, isFullScreen: window?.styleMask.contains(.fullScreen) == true) {
+            hostTabKeyUpPending = true
+            return false
+        }
+        guard !keyboardReleased, router.input != nil, shouldSendKeyEquivalentToGuest(event) else {
             return super.performKeyEquivalent(with: event)
         }
         router.keyEquivalent(event)
@@ -304,6 +374,8 @@ final class SpiceDisplayView: MTKView {
     private var shouldHideHostCursor: Bool {
         Preferences.hideHostCursor
             && window?.isKeyWindow == true
+            && hasKeyboardFocus
+            && !keyboardReleased
             && router.input != nil
             && router.input?.serverModeCursor == false
     }
@@ -327,19 +399,42 @@ final class SpiceDisplayView: MTKView {
     override func mouseEntered(with event: NSEvent) { updateHostCursorVisibility() }
     override func mouseExited(with event: NSEvent) { showHostCursor() }
 
-    override func keyDown(with event: NSEvent) { router.keyDown(event) }
-    override func keyUp(with event: NSEvent) { router.keyUp(event) }
-    override func flagsChanged(with event: NSEvent) { router.flagsChanged(event) }
+    override func keyDown(with event: NSEvent) {
+        if GuestKeyboardPolicy.routesTabToHost(event, isFullScreen: window?.styleMask.contains(.fullScreen) == true) {
+            hostTabKeyUpPending = true
+            super.keyDown(with: event)
+            return
+        }
+        if event.keyCode == 48 { hostTabKeyUpPending = false }
+        if keyboardReleased { super.keyDown(with: event) } else { router.keyDown(event) }
+    }
+    override func keyUp(with event: NSEvent) {
+        if event.keyCode == 48, hostTabKeyUpPending {
+            hostTabKeyUpPending = false
+            super.keyUp(with: event)
+            return
+        }
+        if keyboardReleased { super.keyUp(with: event) } else { router.keyUp(event) }
+    }
+    override func flagsChanged(with event: NSEvent) {
+        if keyboardReleased { super.flagsChanged(with: event) } else { router.flagsChanged(event) }
+    }
 
     override func mouseDown(with event: NSEvent) {
         // Clicking the guest should also take keyboard focus.
-        if window?.firstResponder !== self { window?.makeFirstResponder(self) }
+        captureKeyboard()
         router.mouseButton(event, pressed: true)
     }
     override func mouseUp(with event: NSEvent) { router.mouseButton(event, pressed: false) }
-    override func rightMouseDown(with event: NSEvent) { router.mouseButton(event, pressed: true) }
+    override func rightMouseDown(with event: NSEvent) {
+        captureKeyboard()
+        router.mouseButton(event, pressed: true)
+    }
     override func rightMouseUp(with event: NSEvent) { router.mouseButton(event, pressed: false) }
-    override func otherMouseDown(with event: NSEvent) { router.mouseButton(event, pressed: true) }
+    override func otherMouseDown(with event: NSEvent) {
+        captureKeyboard()
+        router.mouseButton(event, pressed: true)
+    }
     override func otherMouseUp(with event: NSEvent) { router.mouseButton(event, pressed: false) }
 
     override func mouseMoved(with event: NSEvent) {

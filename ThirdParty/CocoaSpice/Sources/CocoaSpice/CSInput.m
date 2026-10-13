@@ -20,6 +20,23 @@
 #import <glib.h>
 #import <spice-client.h>
 #import <spice/protocol.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+// Opt-in diagnostic set by SpiceMac. Trace only Control and Tab scancodes.
+static void traceShortcut(const char *stage, CSInputKey type, int scancode) {
+    if (scancode != 0x0f && scancode != 0x1d && scancode != 0x11d) return;
+    const char *path = getenv("SPICEMAC_KEYBOARD_TRACE_PATH");
+    if (!path) return;
+    int fd = open(path, O_WRONLY | O_APPEND | O_NOFOLLOW);
+    if (fd < 0) return;
+    char line[160];
+    int length = snprintf(line, sizeof(line), "%.6f transport %s %s scancode=0x%x\n",
+                          NSDate.date.timeIntervalSince1970, stage,
+                          type == kCSInputKeyPress ? "press" : "release", scancode);
+    if (length > 0 && length < sizeof(line)) write(fd, line, length);
+    close(fd);
+}
 
 @interface CSInput ()
 
@@ -78,9 +95,11 @@
     g_return_if_fail(scancode != 0);
     
     if (!self.channel) {
+        traceShortcut("drop-no-channel", type, scancode);
         return;
     }
     if (self.disableInputs) {
+        traceShortcut("drop-disabled", type, scancode);
         return;
     }
     
@@ -93,16 +112,20 @@
         SpiceInputsChannel *inputs = self.channel;
         switch (type) {
             case kCSInputKeyPress:
+                traceShortcut("wire", type, scancode);
                 spice_inputs_channel_key_press(inputs, scancode);
                 
                 self->_key_state[i] |= m;
                 break;
                 
             case kCSInputKeyRelease:
-                if (!(self->_key_state[i] & m))
+                if (!(self->_key_state[i] & m)) {
+                    traceShortcut("drop-not-held", type, scancode);
                     break;
+                }
                 
                 
+                traceShortcut("wire", type, scancode);
                 spice_inputs_channel_key_release(inputs, scancode);
                 
                 self->_key_state[i] &= ~m;

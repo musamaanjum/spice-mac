@@ -50,6 +50,7 @@ public final class SpiceInputRouter {
     private var buttonMask: CSInputButton = []
     private var heldModifiers: Set<UInt16> = []
     private var synthesizedKeyEquivalentKeyUps: Set<UInt16> = []
+    public var onKeyboardTrace: ((String) -> Void)?
 
     public init(input: CSInput? = nil) {
         self.input = input
@@ -58,8 +59,14 @@ public final class SpiceInputRouter {
     // MARK: - Keyboard
 
     public func keyDown(_ event: NSEvent) {
+        if event.keyCode == MacVirtualKey.tab {
+            onKeyboardTrace?("router down repeat=\(event.isARepeat) pendingEquivalent=\(synthesizedKeyEquivalentKeyUps.contains(event.keyCode)) flags=\(event.modifierFlags.rawValue)")
+        }
         if synthesizedKeyEquivalentKeyUps.contains(event.keyCode) {
-            return
+            if event.isARepeat { return }
+            // A non-repeat is a fresh physical press. The keyUp belonging to an
+            // earlier equivalent may have been consumed by AppKit or macOS.
+            synthesizedKeyEquivalentKeyUps.remove(event.keyCode)
         }
         // Recover any modifier that was released while we weren't getting events
         // (e.g. a ⌘-combo the system intercepted) before sending the key.
@@ -120,16 +127,30 @@ public final class SpiceInputRouter {
         reconcileModifiers(event.modifierFlags)
     }
 
-    /// Release any held modifier whose macOS flag is no longer set — recovers from
-    /// a missed key-up so a modifier never stays "stuck down" on the guest.
+    /// Reconcile both directions. Captured shortcuts can arrive without the
+    /// preceding flagsChanged (for example after a fullscreen focus change).
+    /// Send missing modifier presses BEFORE the shortcut key, as well as clearing
+    /// modifiers released while the view wasn't receiving events.
     private func reconcileModifiers(_ flags: NSEvent.ModifierFlags) {
         let stuck = heldModifiers.filter { kc in
             guard let flag = Self.modifierFlag(for: kc) else { return false }
             return !flags.contains(flag)
         }
-        for kc in stuck {
+        for kc in stuck.sorted() {
             heldModifiers.remove(kc)
             sendKey(kc, pressed: false)
+        }
+        let modifiers: [(UInt16, NSEvent.ModifierFlags)] = [
+            (MacVirtualKey.control, .control), (MacVirtualKey.option, .option),
+            (MacVirtualKey.shift, .shift), (MacVirtualKey.command, .command),
+            (MacVirtualKey.function, .function)
+        ]
+        for (kc, flag) in modifiers where flags.contains(flag) {
+            // Keep a known right-side modifier; use the left side only when its
+            // physical transition was missed and the flags don't identify a side.
+            guard !heldModifiers.contains(where: { Self.modifierFlag(for: $0) == flag }) else { continue }
+            heldModifiers.insert(kc)
+            sendKey(kc, pressed: true)
         }
     }
 
@@ -156,6 +177,9 @@ public final class SpiceInputRouter {
     }
 
     private func sendKey(_ keyCode: UInt16, pressed: Bool, isISOKeyboard: Bool = false) {
+        if [MacVirtualKey.tab, MacVirtualKey.control, MacVirtualKey.rightControl].contains(keyCode) {
+            onKeyboardTrace?("router \(pressed ? "press" : "release") macKey=\(keyCode) input=\(input != nil)")
+        }
         guard let input,
               let code = SpiceScancode.cocoaSpiceCode(forMacVirtualKey: keyCode,
                                                     isISOKeyboard: isISOKeyboard) else { return }
