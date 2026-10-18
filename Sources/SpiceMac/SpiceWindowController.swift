@@ -15,7 +15,6 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private let displayView = SpiceDisplayView()
     private let containerView = NSView()
     private let statusLabel = NSTextField(labelWithString: "Connecting…")
-    private let keyboardReleaseButton = NSButton()
     private var cancellables = Set<AnyCancellable>()
     private var isExitingFullScreen = false
     private var isEnteringFullScreen = false
@@ -107,21 +106,6 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             statusLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             statusLabel.widthAnchor.constraint(lessThanOrEqualTo: containerView.widthAnchor, multiplier: 0.8),
-        ])
-
-        keyboardReleaseButton.title = "Release keyboard to Mac  ⌃⌥R"
-        keyboardReleaseButton.bezelStyle = .rounded
-        keyboardReleaseButton.controlSize = .small
-        keyboardReleaseButton.font = .systemFont(ofSize: 12, weight: .medium)
-        keyboardReleaseButton.target = self
-        keyboardReleaseButton.action = #selector(releaseCursor(_:))
-        keyboardReleaseButton.toolTip = "Release the keyboard, then use Command+Tab to switch to macOS. Click the VM to capture again."
-        keyboardReleaseButton.isHidden = true
-        keyboardReleaseButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(keyboardReleaseButton)
-        NSLayoutConstraint.activate([
-            keyboardReleaseButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            keyboardReleaseButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 10),
         ])
 
         window.contentView = containerView
@@ -404,13 +388,11 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     func windowWillExitFullScreen(_ notification: Notification) {
         isExitingFullScreen = true
         restoreHostPresentationOptions()
-        updateKeyboardReleaseControl()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         isExitingFullScreen = false
         HostPresentationController.shared.endFullScreen(owner: self)
-        updateKeyboardReleaseControl()
         scheduleResolutionRequest()
     }
 
@@ -420,7 +402,6 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     }
 
     private func updateHostPresentationOptions() {
-        defer { updateKeyboardReleaseControl() }
         guard !isEnteringFullScreen else { return }
         guard !isExitingFullScreen, NSApp.isActive, window?.isKeyWindow == true,
               window?.styleMask.contains(.fullScreen) == true,
@@ -442,17 +423,6 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
 
     private func restoreHostPresentationOptions() {
         HostPresentationController.shared.restore(owner: self)
-    }
-
-    private func updateKeyboardReleaseControl() {
-        keyboardReleaseButton.isHidden = isEnteringFullScreen || isExitingFullScreen
-            || window?.styleMask.contains(.fullScreen) != true
-            || displayView.router.input == nil || displayView.attachedDisplay == nil
-            || displayView.isHidden || window?.attachedSheet != nil
-        keyboardReleaseButton.isEnabled = shouldCaptureKeyboard
-        keyboardReleaseButton.title = shouldCaptureKeyboard
-            ? "Release keyboard to Mac  ⌃⌥R"
-            : "Mac keyboard · Click VM to capture"
     }
 
     // MARK: - Window lifecycle

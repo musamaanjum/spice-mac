@@ -172,7 +172,7 @@ the matching build-time headers; keep the sysroot version in sync with them.
 3. For clipboard sharing and dynamic resolution, the guest must run
    **`spice-vdagent`**.
 
-**Connection ▸ Guest Resolution** adds fixed **1920 × 1080** and **1512 × 982**
+**Connection ▸ Guest Resolution** adds fixed **1920 × 1080**, **1512 × 982**, and **1512 × 948**
 presets alongside **Match Window (Use Zoom)**. Selecting **View ▸ Zoom** returns
 to window-sized resolution; **150%** replaces the earlier local 1.5× fit option.
 Preset selections belong to each window, with the last choice seeding new windows.
@@ -183,8 +183,7 @@ delivers **Control+Tab** unchanged to the VM. In window mode **Control+Tab** sta
 with macOS. Press **Control+Option+R** (**Connection ▸ Release
 Keyboard and Cursor**) to return keyboard control to macOS. Click the guest to
 capture it again. Leaving fullscreen or disconnecting also releases the capture.
-The fullscreen **Release keyboard to Mac** button provides the same escape with
-the mouse. An explicit release stays in effect until you click the VM again or
+An explicit release stays in effect until you click the VM again or
 start a new fullscreen session.
 
 What the app does with the `.vv`: parses the opaque `host` token, `proxy`
