@@ -41,6 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         presentOpenPanel()
     }
 
+    @objc func revealUSBLogs(_ sender: Any?) {
+        USBDiagnostics.revealLogs()
+    }
+
     @objc func showAboutPanel(_ sender: Any?) {
         let bundle = Bundle.main
         let appName = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String

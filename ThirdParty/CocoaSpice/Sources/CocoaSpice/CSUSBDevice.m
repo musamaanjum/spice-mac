@@ -147,6 +147,25 @@
     }
 }
 
+- (NSString *)diagnosticDescription {
+    libusb_device *dev = (libusb_device *)spice_usb_device_get_libusb_device(self.device);
+    if (!dev) {
+        return @"device=unavailable";
+    }
+    struct libusb_device_descriptor descriptor = { 0 };
+    int result = libusb_get_device_descriptor(dev, &descriptor);
+    uint8_t ports[8];
+    int count = libusb_get_port_numbers(dev, ports, sizeof(ports));
+    NSMutableArray<NSString *> *path = [NSMutableArray array];
+    for (int i = 0; i < count; i++) {
+        [path addObject:[NSString stringWithFormat:@"%u", ports[i]]];
+    }
+    return [NSString stringWithFormat:@"id=%04x:%04x bus=%u address=%u port-path=%@ speed=%d usb=%04x class=%02x instance=%p descriptor=%s",
+            descriptor.idVendor, descriptor.idProduct, libusb_get_bus_number(dev),
+            libusb_get_device_address(dev), count > 0 ? [path componentsJoinedByString:@"."] : @"unavailable",
+            libusb_get_device_speed(dev), descriptor.bcdUSB, descriptor.bDeviceClass, dev, libusb_error_name(result)];
+}
+
 - (NSString *)description {
     gchar *description = spice_usb_device_get_description(self.device, NULL);
     if (!description) {

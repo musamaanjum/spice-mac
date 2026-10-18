@@ -274,6 +274,21 @@ stay bilinear or it aliases badly.
 
 ## USB redirection
 
+USB diagnostics are recorded automatically, including redirect attempts and
+results, error domains/codes, libusb errors, device attachment/removal, VID/PID,
+the full USB port path, and available SPICE USB channels. Open **Connection ▸
+Show USB Logs in Finder** to find `USB-*.log` under
+`~/Library/Logs/SpiceMac/`. After a failure, keep the most recent files from that
+attempt, including any subsequent successful retry. Logging starts when the app
+launches; a rebuild does not add logging to an already running app.
+
+Files are private to the current user (mode 0600). Each app process retains four
+segments of about 5 MiB each; logs from exited apps expire after 14 days. The app
+does not log connection-file contents or USB payloads, and masks common
+authentication fields in native messages. When launched as root, logs are under
+`/var/root/Library/Logs/SpiceMac/`. Set `LIBUSB_DEBUG=4` before launching if a
+more detailed libusb trace is needed; the normal level is 3 (info/warnings/errors).
+
 On macOS 26 (Tahoe), some isochronous USB endpoints can trigger a kernel panic
 inside Apple's `IOUSBHostFamily` during `GetEndpointPropertiesV3`. This checkout's
 `upgrade-libusb.sh` applies a workaround that uses the already successful pipe

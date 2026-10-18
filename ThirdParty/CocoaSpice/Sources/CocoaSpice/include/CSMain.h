@@ -48,7 +48,13 @@ typedef void (^LogHandler_t)(NSString *line);
 @property (class, nonatomic, readonly) CSMain *sharedInstance NS_SWIFT_NAME(shared);
 
 /// If set, SPICE logging will be sent to this callback
-@property (nonatomic, nullable) LogHandler_t logHandler;
+@property (nonatomic, nullable, copy) LogHandler_t logHandler;
+
+/// Send an application diagnostic to the log handler, even with debug disabled.
+- (void)spiceLog:(NSString *)line;
+
+/// Capture libusb diagnostics. Call before creating any connection/USB manager.
+- (void)spiceEnableUSBDiagnostics;
 
 - (instancetype)init NS_UNAVAILABLE;
 

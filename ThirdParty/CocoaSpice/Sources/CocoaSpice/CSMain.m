@@ -19,6 +19,9 @@
 #import <spice-client.h>
 #import <pthread.h>
 #import "gst_ios_init.h"
+#ifdef WITH_USB_SUPPORT
+#import <libusb.h>
+#endif
 
 @interface CSMain ()
 
@@ -46,7 +49,6 @@ static void logHandler(const gchar *log_domain, GLogLevelFlags log_level,
 {
     GDateTime *now;
     gchar *dateTimeStr;
-    const char *glog_domains = g_getenv("G_MESSAGES_DEBUG");
     LogHandler_t handler = (__bridge LogHandler_t)user_data;
 
     if (!spice_util_get_debug() &&
@@ -75,12 +77,12 @@ static void logHandler(const gchar *log_domain, GLogLevelFlags log_level,
     if (handler) {
         NSString *line = [NSString stringWithFormat:@"%s,%03d %s %s-%s\n", dateTimeStr,
                           g_date_time_get_microsecond(now) / 1000, levelStr,
-                          log_domain, message];
+                          log_domain ?: "default", message];
         handler(line);
     } else {
         fprintf(stdout, "%s,%03d %s %s-%s\n", dateTimeStr,
                 g_date_time_get_microsecond(now) / 1000, levelStr,
-                log_domain, message);
+                log_domain ?: "default", message);
     }
     
     g_date_time_unref(now);
@@ -116,8 +118,37 @@ void *spice_main_loop(void *args) {
 }
 
 - (void)setLogHandler:(LogHandler_t)newLogHandler {
-    _logHandler = newLogHandler;
-    g_log_set_default_handler(logHandler, (__bridge gpointer)newLogHandler);
+    _logHandler = [newLogHandler copy];
+    g_log_set_default_handler(logHandler, (__bridge gpointer)_logHandler);
+}
+
+- (void)spiceLog:(NSString *)line {
+    LogHandler_t handler = self.logHandler;
+    if (handler) {
+        handler(line);
+    } else {
+        fprintf(stderr, "%s\n", line.UTF8String);
+    }
+}
+
+#ifdef WITH_USB_SUPPORT
+static void LIBUSB_CALL usbLogHandler(libusb_context *context, enum libusb_log_level level, const char *message) {
+    @autoreleasepool {
+        [CSMain.sharedInstance spiceLog:[NSString stringWithFormat:@"libusb level=%d context=%p %s", level, context, message]];
+    }
+}
+#endif
+
+- (void)spiceEnableUSBDiagnostics {
+#ifdef WITH_USB_SUPPORT
+    // Set before spice-gtk initializes its private libusb context. Preserve an
+    // explicitly requested verbosity (e.g. LIBUSB_DEBUG=4 for transfer tracing).
+    setenv("LIBUSB_DEBUG", "3", 0);
+    libusb_set_log_cb(NULL, usbLogHandler, LIBUSB_LOG_CB_GLOBAL);
+    const struct libusb_version *version = libusb_get_version();
+    [self spiceLog:[NSString stringWithFormat:@"USB diagnostics libusb=%u.%u.%u.%u level=%s",
+                   version->major, version->minor, version->micro, version->nano, getenv("LIBUSB_DEBUG")]];
+#endif
 }
 
 - (id)init {

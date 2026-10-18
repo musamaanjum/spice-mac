@@ -43,9 +43,19 @@ static NSString *const kCSUSBManagerDomain = @"org.spice-space.usb";
 
 #pragma mark - Signal callbacks
 
-static NSError *errorWithUTF8String(const char *string) {
-    NSString *description = [NSString stringWithUTF8String:string];
-    return [NSError errorWithDomain:kCSUSBManagerDomain code:-1 userInfo:@{NSLocalizedDescriptionKey: description}];
+static NSError *errorWithGError(GError *error) {
+    NSString *description = [NSString stringWithUTF8String:error->message];
+    NSString *domain = [NSString stringWithUTF8String:g_quark_to_string(error->domain) ?: "unknown"];
+    return [NSError errorWithDomain:kCSUSBManagerDomain code:error->code
+                          userInfo:@{NSLocalizedDescriptionKey: description, @"GLibErrorDomain": domain}];
+}
+
+static void logDeviceEvent(CSUSBManager *manager, NSString *event, CSUSBDevice *device, GError *error) {
+    NSString *detail = error ? [NSString stringWithFormat:@" error-domain=%s error-code=%d message=%s",
+                               g_quark_to_string(error->domain) ?: "unknown", error->code, error->message] : @"";
+    [CSMain.sharedInstance spiceLog:[NSString stringWithFormat:@"USB %@ manager=%p free-channels=%ld %@%@",
+                                    event, manager.usbDeviceManager, (long)manager.numberFreeChannels,
+                                    device.diagnosticDescription, detail]];
 }
 
 static void cs_device_error(SpiceUsbDeviceManager *manager,
@@ -55,11 +65,23 @@ static void cs_device_error(SpiceUsbDeviceManager *manager,
 {
     CSUSBManager *self = (__bridge CSUSBManager *)data;
     CSUSBDevice *usbdevice = [CSUSBDevice usbDeviceWithDevice:device manager:manager];
-
+    logDeviceEvent(self, @"device-error", usbdevice, error);
     if (error->domain == G_IO_ERROR && error->code == G_IO_ERROR_CANCELLED)
         return;
     
     [self.delegate spiceUsbManager:self deviceError:[NSString stringWithUTF8String:error->message] forDevice:usbdevice];
+}
+
+static void cs_auto_connect_failed(SpiceUsbDeviceManager *manager, SpiceUsbDevice *device, GError *error, gpointer data) {
+    CSUSBManager *self = (__bridge CSUSBManager *)data;
+    logDeviceEvent(self, @"auto-connect-failed", [CSUSBDevice usbDeviceWithDevice:device manager:manager], error);
+    cs_device_error(manager, device, error, data);
+}
+
+static void cs_free_channels_changed(GObject *object, GParamSpec *property, gpointer data) {
+    CSUSBManager *self = (__bridge CSUSBManager *)data;
+    [CSMain.sharedInstance spiceLog:[NSString stringWithFormat:@"USB channel-availability manager=%p free-channels=%ld",
+                                    object, (long)self.numberFreeChannels]];
 }
 
 static void cs_device_added(SpiceUsbDeviceManager *manager,
@@ -67,7 +89,7 @@ static void cs_device_added(SpiceUsbDeviceManager *manager,
 {
     CSUSBManager *self = (__bridge CSUSBManager *)data;
     CSUSBDevice *usbdevice = [CSUSBDevice usbDeviceWithDevice:device manager:manager];
-
+    logDeviceEvent(self, @"device-added", usbdevice, NULL);
     [self.delegate spiceUsbManager:self deviceAttached:usbdevice];
 }
 
@@ -76,7 +98,7 @@ static void cs_device_removed(SpiceUsbDeviceManager *manager,
 {
     CSUSBManager *self = (__bridge CSUSBManager *)data;
     CSUSBDevice *usbdevice = [CSUSBDevice usbDeviceWithDevice:device manager:manager];
-
+    logDeviceEvent(self, @"device-removed", usbdevice, NULL);
     [self.delegate spiceUsbManager:self deviceRemoved:usbdevice];
 }
 
@@ -88,7 +110,7 @@ static void cs_connect_cb(GObject *gobject, GAsyncResult *res, gpointer data)
 
     spice_usb_device_manager_connect_device_finish(manager, res, &err);
     if (err) {
-        callback(errorWithUTF8String(err->message));
+        callback(errorWithGError(err));
         g_error_free(err);
     } else {
         callback(nil);
@@ -103,7 +125,7 @@ static void cs_disconnect_cb(GObject *gobject, GAsyncResult *res, gpointer data)
 
     spice_usb_device_manager_disconnect_device_finish(manager, res, &err);
     if (err) {
-        callback(errorWithUTF8String(err->message));
+        callback(errorWithGError(err));
         g_error_free(err);
     } else {
         callback(nil);
@@ -190,13 +212,20 @@ static gboolean cs_call_manager(gpointer user_data)
     if (self = [super init]) {
         self.usbDeviceManager = g_object_ref(usbDeviceManager);
         g_signal_connect(usbDeviceManager, "auto-connect-failed",
-                         G_CALLBACK(cs_device_error), (__bridge void *)self);
+                         G_CALLBACK(cs_auto_connect_failed), (__bridge void *)self);
         g_signal_connect(usbDeviceManager, "device-error",
                          G_CALLBACK(cs_device_error), (__bridge void *)self);
         g_signal_connect(usbDeviceManager, "device-added",
                          G_CALLBACK(cs_device_added), (__bridge void *)self);
         g_signal_connect(usbDeviceManager, "device-removed",
                          G_CALLBACK(cs_device_removed), (__bridge void *)self);
+        g_signal_connect(usbDeviceManager, "notify::free-channels",
+                         G_CALLBACK(cs_free_channels_changed), (__bridge void *)self);
+        [CSMain.sharedInstance spiceLog:[NSString stringWithFormat:@"USB manager-created manager=%p free-channels=%ld",
+                                        usbDeviceManager, (long)self.numberFreeChannels]];
+        for (CSUSBDevice *device in self.usbDevices) {
+            logDeviceEvent(self, @"device-present", device, NULL);
+        }
     }
     return self;
 }
@@ -205,10 +234,12 @@ static gboolean cs_call_manager(gpointer user_data)
     SpiceUsbDeviceManager *usbDeviceManager = self.usbDeviceManager;
     gpointer data = (__bridge void *)self;
     [CSMain.sharedInstance syncWith:^{
-        g_signal_handlers_disconnect_by_func(usbDeviceManager, G_CALLBACK(cs_device_error), data);
+        [CSMain.sharedInstance spiceLog:[NSString stringWithFormat:@"USB manager-destroyed manager=%p", usbDeviceManager]];
+        g_signal_handlers_disconnect_by_func(usbDeviceManager, G_CALLBACK(cs_auto_connect_failed), data);
         g_signal_handlers_disconnect_by_func(usbDeviceManager, G_CALLBACK(cs_device_error), data);
         g_signal_handlers_disconnect_by_func(usbDeviceManager, G_CALLBACK(cs_device_added), data);
         g_signal_handlers_disconnect_by_func(usbDeviceManager, G_CALLBACK(cs_device_removed), data);
+        g_signal_handlers_disconnect_by_func(usbDeviceManager, G_CALLBACK(cs_free_channels_changed), data);
         g_object_unref(usbDeviceManager);
     }];
 }
@@ -218,6 +249,7 @@ static gboolean cs_call_manager(gpointer user_data)
 - (BOOL)canRedirectUsbDevice:(CSUSBDevice *)usbDevice errorMessage:(NSString * _Nullable __autoreleasing *)errorMessage {
     GError *err = NULL;
     gboolean res = spice_usb_device_manager_can_redirect_device(self.usbDeviceManager, usbDevice.device, &err);
+    logDeviceEvent(self, res ? @"redirect-check-ok" : @"redirect-check-failed", usbDevice, err);
     if (errorMessage && err) {
         *errorMessage = [NSString stringWithUTF8String:err->message];
     }
@@ -230,11 +262,23 @@ static gboolean cs_call_manager(gpointer user_data)
 }
 
 - (void)spiceUsbManagerCall:(usbManagerCall)call forUsbDevice:(CSUSBDevice *)usbDevice withCompletion:(CSUSBManagerConnectionCallback)completion {
+    NSString *operation = call == kUsbManagerCallConnect ? @"connect" : @"disconnect";
+    NSString *attempt = NSUUID.UUID.UUIDString;
+    NSString *identity = usbDevice.diagnosticDescription;
+    logDeviceEvent(self, [NSString stringWithFormat:@"%@-requested attempt=%@", operation, attempt], usbDevice, NULL);
+    CSUSBManagerConnectionCallback loggedCompletion = ^(NSError *error) {
+        [CSMain.sharedInstance spiceLog:[NSString stringWithFormat:@"USB %@-%@ attempt=%@ manager=%p free-channels=%ld %@ error-domain=%@ error-code=%ld glib-domain=%@ message=%@",
+                                        operation, error ? @"failed" : @"succeeded", attempt,
+                                        self.usbDeviceManager, (long)self.numberFreeChannels, identity,
+                                        error.domain ?: @"none", (long)error.code, error.userInfo[@"GLibErrorDomain"] ?: @"none",
+                                        error.localizedDescription ?: @"none"]];
+        completion(error);
+    };
     usbManagerData *data = g_new0(usbManagerData, 1);
     data->call = call;
     data->manager = self.usbDeviceManager;
     data->device = usbDevice.device;
-    data->callback = (__bridge_retained gpointer)completion;
+    data->callback = (__bridge_retained gpointer)[loggedCompletion copy];
     g_main_context_invoke_full([CSMain sharedInstance].glibMainContext,
                                G_PRIORITY_HIGH,
                                cs_call_manager,

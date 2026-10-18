@@ -98,6 +98,10 @@ enum MainMenu {
         usbItem.submenu = usbMenu
         usbSubmenu = usbMenu
         connMenu.addItem(usbItem)
+        let logs = NSMenuItem(title: "Show USB Logs in Finder",
+                              action: #selector(AppDelegate.revealUSBLogs(_:)), keyEquivalent: "")
+        logs.target = NSApp.delegate
+        connMenu.addItem(logs)
 
         // View menu
         let viewItem = NSMenuItem()

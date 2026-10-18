@@ -47,6 +47,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// USB port number
 @property (nonatomic, readonly) NSInteger usbPortNumber;
 
+/// Cached USB identity and full physical port path; never opens the device.
+@property (nonatomic, readonly) NSString *diagnosticDescription;
+
 - (instancetype)init NS_UNAVAILABLE;
 
 /// Compare two USB devices
