@@ -11,6 +11,7 @@
 #   CONFIG=release|debug            (default: release)
 #   SIGN_IDENTITY="Developer ID Application: …"   (default: "-" ad-hoc)
 #   HARDENED=1                      sign with hardened runtime + entitlements
+#   SPICEMAC_BUILD_DIR=/path        separate output directory (default: ./build)
 #
 set -euo pipefail
 
@@ -20,7 +21,7 @@ cd "$ROOT"
 CONFIG="${CONFIG:-release}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 APP_NAME="SpiceMac"
-OUT="$ROOT/build"
+OUT="${SPICEMAC_BUILD_DIR:-$ROOT/build}"
 APP="$OUT/$APP_NAME.app"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT

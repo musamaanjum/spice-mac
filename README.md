@@ -289,6 +289,15 @@ authentication fields in native messages. When launched as root, logs are under
 `/var/root/Library/Logs/SpiceMac/`. Set `LIBUSB_DEBUG=4` before launching if a
 more detailed libusb trace is needed; the normal level is 3 (info/warnings/errors).
 
+To rebuild alongside an active session without replacing its app bundle:
+
+```bash
+SPICEMAC_BUILD_DIR="$PWD/build/usb-diagnostics" make build
+```
+
+The new app is `build/usb-diagnostics/SpiceMac.app`; launch it when ready for a new
+session. The current app and connection keep running.
+
 On macOS 26 (Tahoe), some isochronous USB endpoints can trigger a kernel panic
 inside Apple's `IOUSBHostFamily` during `GetEndpointPropertiesV3`. This checkout's
 `upgrade-libusb.sh` applies a workaround that uses the already successful pipe
