@@ -186,4 +186,37 @@ t.test("zero vertical delta stays zero (horizontal-only and gesture-end events)"
     t.expectEqual(SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: 0), 0)
 }
 
+t.test("precise scrolling converts pixel distance to wheel notches") {
+    t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: 40, precise: true), -1)
+    t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: -80, precise: true), 2)
+    t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: 1, precise: true), -0.025)
+}
+
+t.test("small precise events preserve the same distance as a batched gesture") {
+    for speed in SpiceScroll.Speed.allCases {
+        let small = SpiceScroll.wheelDeltaY(forMacDeltaY: 0.125, precise: true, speed: speed)
+        let whole = SpiceScroll.wheelDeltaY(forMacDeltaY: 40, precise: true, speed: speed)
+        t.expectEqual(small * 320, whole)
+        t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: -40, precise: true, speed: speed), -whole)
+    }
+}
+
+t.test("conventional wheels keep one notch per event and support slower settings") {
+    for delta: CGFloat in [0.1, 1, 12] {
+        t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: delta, precise: false), -1)
+        t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: -delta, precise: false), 1)
+        t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: delta, precise: false, speed: .half) * 2, -1)
+        t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: -delta, precise: false, speed: .quarter) * 4, 1)
+        t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: delta, precise: false, speed: .double), -2)
+    }
+}
+
+t.test("empty and nonfinite scroll events cannot generate wheel movement") {
+    for precise in [false, true] {
+        for delta: CGFloat in [0, .nan, .infinity, -.infinity] {
+            t.expectEqual(SpiceScroll.wheelDeltaY(forMacDeltaY: delta, precise: precise), 0)
+        }
+    }
+}
+
 t.finishAndExit()

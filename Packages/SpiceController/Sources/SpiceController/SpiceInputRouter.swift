@@ -12,6 +12,8 @@ public final class SpiceInputRouter {
     /// The active inputs channel. Set when `spiceInputAvailable:` fires.
     public weak var input: CSInput?
 
+    public var scrollSpeed: SpiceScroll.Speed = .normal
+
     /// Supplies the current guest display size (pixels) for absolute pointer
     /// mapping. If nil, the view's own bounds size is used. Retained as a
     /// fallback for callers that don't supply a `viewportInfoProvider`.
@@ -229,15 +231,13 @@ public final class SpiceInputRouter {
 
     public func scrollWheel(_ event: NSEvent) {
         guard let input else { return }
-        let dy = SpiceScroll.cocoaSpiceDeltaY(forMacDeltaY: event.scrollingDeltaY)
-        if event.hasPreciseScrollingDeltas {
-            input.sendMouseScroll(.smooth, buttonMask: buttonMask, dy: dy)
-        } else if dy < 0 {
-            // The converted delta uses negative = up for both input paths.
-            input.sendMouseScroll(.up, buttonMask: buttonMask, dy: 0)
-        } else if dy > 0 {
-            input.sendMouseScroll(.down, buttonMask: buttonMask, dy: 0)
-        }
+        let dy = SpiceScroll.wheelDeltaY(forMacDeltaY: event.scrollingDeltaY,
+                                         precise: event.hasPreciseScrollingDeltas,
+                                         speed: scrollSpeed)
+        guard dy != 0 else { return }
+        // Accumulate fractions in CocoaSpice so slower settings work for mouse
+        // wheels too, without dropping small trackpad or momentum movements.
+        input.sendMouseScroll(.smooth, buttonMask: buttonMask, dy: dy)
     }
 
     /// Map the guest mouse mode the server prefers (server = relative).

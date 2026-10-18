@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import AppKit
 import DisplayScale
+import SpiceInputMap
 
 /// Builds the application main menu programmatically (no nib). Connection-specific
 /// actions (release cursor, send Ctrl-Alt-Del, USB) use `nil` targets so they
@@ -79,6 +80,17 @@ enum MainMenu {
             resolutionMenu.addItem(item)
         }
         connMenu.addItem(resolutionItem)
+        let scrollItem = NSMenuItem(title: "Scroll Speed", action: nil, keyEquivalent: "")
+        let scrollMenu = NSMenu(title: "Scroll Speed")
+        scrollItem.submenu = scrollMenu
+        for speed in SpiceScroll.Speed.allCases {
+            let item = NSMenuItem(title: speed.title,
+                                  action: #selector(SpiceWindowController.setScrollSpeed(_:)),
+                                  keyEquivalent: "")
+            item.tag = speed.rawValue
+            scrollMenu.addItem(item)
+        }
+        connMenu.addItem(scrollItem)
         connMenu.addItem(.separator())
         // USB submenu, populated dynamically by the window controller.
         let usbItem = NSMenuItem(title: "USB Devices", action: nil, keyEquivalent: "")

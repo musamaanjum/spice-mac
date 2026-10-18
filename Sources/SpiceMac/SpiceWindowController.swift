@@ -4,6 +4,7 @@ import Combine
 import CocoaSpice
 import SpiceController
 import DisplayScale
+import SpiceInputMap
 
 /// Owns one SPICE session window: hosts the `SpiceDisplayView`, reflects
 /// connection state, resizes to the guest, and exposes the Connection/USB menu
@@ -83,6 +84,7 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
 
     private func setupViews() {
         guard let window else { return }
+        displayView.router.scrollSpeed = Preferences.scrollSpeed
         containerView.frame = NSRect(x: 0, y: 0, width: 1024, height: 768)
         displayView.autoresizingMask = [.width, .height]
         displayView.frame = containerView.bounds
@@ -503,6 +505,12 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         apply(zoom: level)
     }
 
+    @objc func setScrollSpeed(_ sender: NSMenuItem) {
+        guard let speed = SpiceScroll.Speed(rawValue: sender.tag) else { return }
+        displayView.router.scrollSpeed = speed
+        Preferences.scrollSpeed = speed
+    }
+
     @objc func zoomIn(_ sender: Any?) { apply(zoom: steppedZoom(by: 1)) }
     @objc func zoomOut(_ sender: Any?) { apply(zoom: steppedZoom(by: -1)) }
 
@@ -529,6 +537,8 @@ final class SpiceWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         case #selector(setGuestResolutionPreset(_:)):
             menuItem.state = menuItem.tag == guestResolutionPreset.rawValue ? .on : .off
             return client.supportsDynamicResolution && displayView.attachedDisplay != nil
+        case #selector(setScrollSpeed(_:)):
+            menuItem.state = menuItem.tag == displayView.router.scrollSpeed.rawValue ? .on : .off
         case #selector(setDisplayZoom(_:)):
             // Radio-style: exactly one level checked, recomputed on every menu open
             // so it tracks this window, including after ⌃⌘+ / ⌃⌘-.

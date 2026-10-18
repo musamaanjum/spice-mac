@@ -14,7 +14,7 @@ UTM uses). Apple-Silicon only.
 > resize; keyboard including ⌘/modifiers; mouse with the guest cursor aligned to
 > the macOS pointer; bidirectional clipboard; and audio (needs a SPICE audio
 > device on the VM). USB redirection is plumbed via the Connection menu. The `.vv`
-> parser, keyboard/scroll map, and zoom geometry are also unit-tested (70 dependency-free
+> parser, keyboard/scroll map, and zoom geometry are also unit-tested (74 dependency-free
 > checks).
 >
 > | Feature | Status |
@@ -186,6 +186,12 @@ capture it again. Leaving fullscreen or disconnecting also releases the capture.
 An explicit release stays in effect until you click the VM again or
 start a new fullscreen session.
 
+**Connection ▸ Scroll Speed** adjusts scrolling to **25%**, **50%**, **100%**, or
+**200%** immediately for the current VM, and remembers the choice for new windows.
+The default is **100%**. Trackpad and Magic Mouse movement is converted to wheel
+notches at a reduced rate to prevent tiny gestures from racing through the guest.
+Choose **50%** or **25%** for finer control, including with a regular mouse wheel.
+
 What the app does with the `.vv`: parses the opaque `host` token, `proxy`
 (`http://node:3128`), `tls-port`, one-time `password`, `host-subject`, and CA
 (expanding the escaped `\n`), then connects over TLS through the node's
@@ -198,7 +204,7 @@ The pure-Swift libraries build and test with just the Swift toolchain (no Xcode)
 
 ```sh
 ( cd Packages/VVConfig      && swift run vvcheck )     # .vv parser: 24 checks
-( cd Packages/SpiceInputMap && swift run inputcheck )  # keyboard/scroll map: 22 checks
+( cd Packages/SpiceInputMap && swift run inputcheck )  # keyboard/scroll map: 26 checks
 ( cd Packages/DisplayScale  && swift run scalecheck )  # zoom geometry: 24 checks
 ```
 

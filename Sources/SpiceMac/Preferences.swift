@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
 import Foundation
 import DisplayScale
+import SpiceInputMap
 
 /// App preferences, backed by `UserDefaults`.
 enum Preferences {
+    static var scrollSpeed: SpiceScroll.Speed {
+        get {
+            SpiceScroll.Speed(rawValue: UserDefaults.standard.integer(forKey: "ScrollSpeed")) ?? .normal
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "ScrollSpeed") }
+    }
+
     private static let hideHostCursorKey = "HideHostCursor"
 
     /// When true, the macOS cursor is hidden over the display so only the guest
